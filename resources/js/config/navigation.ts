@@ -1,5 +1,5 @@
-import { Folder, MapPinned, MapPin, Tag, LockKeyhole } from 'lucide-vue-next';
-import { dashboard, proyectos, terrenos, categorias, accesos,  } from '@/routes';
+import { Folder, MapPinned, MapPin, Tag, LockKeyhole, Users, Briefcase, MessageSquare } from 'lucide-vue-next'; // ✅ Agregar MessageSquare
+import { dashboard, proyectos, terrenos, categorias } from '@/routes';
 import type { NavItem } from '@/types';
 
 export const allMainNavItems: NavItem[] = [
@@ -28,8 +28,27 @@ export const allMainNavItems: NavItem[] = [
   },
   {
     title: 'Accesos',
-    href: accesos().url,
+    href: '/accesos',
     icon: LockKeyhole,
     roles: ['admin'],
+  },
+];
+
+// Nuevo: Menú de Leads con submenús
+export const leadsNavItems: NavItem[] = [
+  {
+    title: 'Contacto de Leads',
+    href: '/leads',
+    icon: Users,
+  },
+  {
+    title: 'Negocios',
+    href: '/negocios',
+    icon: Briefcase,
+  },
+  {
+    title: 'WhatsApp', // ✅ AGREGAR ESTE ÍTEM
+    href: '/whatsapp',
+    icon: MessageSquare,
   },
 ];

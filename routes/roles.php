@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 // Ruta principal para listar roles
 Route::middleware(['auth', 'verified', 'role:admin'])
     ->get('roles', [RolesController::class, 'index'])
-    ->name('roles');
+    ->name('roles.index'); // ✅ CAMBIAR DE 'roles' A 'roles.index'
 
 // Rutas para las acciones CRUD de roles
 Route::middleware(['auth', 'verified', 'role:admin'])

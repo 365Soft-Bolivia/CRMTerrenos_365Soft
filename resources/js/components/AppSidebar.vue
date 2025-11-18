@@ -14,7 +14,8 @@ import {
 import AppLogo from './AppLogo.vue';
 import { useAuth } from '@/composables/useAuth';
 import { computed } from 'vue';
-import { allMainNavItems } from '@/config/navigation';
+import { allMainNavItems, leadsNavItems } from '@/config/navigation';
+import type { NavItem } from '@/types';
 
 const { hasAnyRole } = useAuth();
 
@@ -22,7 +23,7 @@ const mainNavItems = computed(() =>
   allMainNavItems.filter(item => hasAnyRole(item.roles || []))
 );
 
-const footerNavItems = [];
+const footerNavItems: NavItem[] = [];
 </script>
 
 <template>
@@ -39,6 +40,9 @@ const footerNavItems = [];
 
     <SidebarContent>
       <NavMain :items="mainNavItems" />
+      
+      <!-- Nuevo: Sección de Leads -->
+      <NavMain :items="leadsNavItems" label="Leads" />
     </SidebarContent>
 
     <SidebarFooter>

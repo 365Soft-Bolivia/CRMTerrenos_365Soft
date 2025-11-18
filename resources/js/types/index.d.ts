@@ -42,10 +42,11 @@ export interface PageProps {
 export interface NavItem {
     title: string;
     href: string;
-    icon: LucideIcon | Component; // Cambiado para aceptar LucideIcon
+    icon: LucideIcon | Component;
     roles?: string[];
     badge?: string | number;
     isActive?: boolean;
+    items?: NavItem[]; // 👈 AGREGADO: Soporte para submenús
 }
 
 // Item de breadcrumb

@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified', 'role:admin'])
     ->get('accesos', [AccesosController::class, 'index'])
-    ->name('accesos');
+    ->name('accesos.index'); // ✅ CAMBIAR DE 'accesos' A 'accesos.index'
 
 Route::middleware(['auth', 'verified', 'role:admin'])
     ->prefix('accesos')
