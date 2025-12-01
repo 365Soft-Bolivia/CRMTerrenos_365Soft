@@ -16,6 +16,35 @@ class LeadController extends Controller
      * Listar todos los leads
      * GET /api/leads
      */
+    /**
+     * Listar todos los leads (Vista Web)
+     */
+    public function webIndex(Request $request)
+    {
+        $query = Lead::with(['asesor', 'negocio.terreno']);
+
+        // Filtrar por asesor si se proporciona
+        if ($request->has('asesor_id')) {
+            $query->where('asesor_id', $request->asesor_id);
+        }
+
+        // Búsqueda por término
+        if ($request->has('buscar')) {
+            $query->buscar($request->buscar);
+        }
+
+        // Paginación
+        $leads = $query->latest()->paginate(50);
+
+        return \Inertia\Inertia::render('Leads/LeadList', [
+            'initialLeads' => $leads
+        ]);
+    }
+
+    /**
+     * Listar todos los leads (API JSON)
+     * GET /api/leads
+     */
     public function index(Request $request)
     {
         try {
@@ -32,7 +61,7 @@ class LeadController extends Controller
             }
 
             // Paginación
-            $perPage = $request->get('per_page', 15);
+            $perPage = $request->get('per_page', 50);
             $leads = $query->latest()->paginate($perPage);
 
             return response()->json([
@@ -229,23 +258,35 @@ class LeadController extends Controller
      * Eliminar un lead
      * DELETE /api/leads/{id}
      */
+    /**
+     * Eliminar un lead
+     * DELETE /api/leads/{id}
+     */
     public function destroy($id)
     {
         try {
             $lead = Lead::findOrFail($id);
             $lead->delete();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Lead eliminado exitosamente'
-            ], 200);
+            if (request()->wantsJson() && !request()->header('X-Inertia')) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Lead eliminado exitosamente'
+                ], 200);
+            }
+
+            return redirect()->back()->with('success', 'Lead eliminado exitosamente');
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al eliminar el lead',
-                'error' => $e->getMessage()
-            ], 500);
+            if (request()->wantsJson() && !request()->header('X-Inertia')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al eliminar el lead',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
+            
+            return redirect()->back()->with('error', 'Error al eliminar el lead');
         }
     }
 }

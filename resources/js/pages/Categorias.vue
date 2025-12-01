@@ -34,7 +34,7 @@ const { appearance } = useAppearance();
             <!-- SECCIÓN 1: VARIABLES DE FONDO -->
             <Card>
                 <template #title>
-                    <h2 class="text-2xl font-semibold">1. Variables de Fondo</h2>
+                    <h2 class="text-2xl font-semibold">1234561. Variables de Fondo</h2>
                 </template>
                 <template #content>
                     <div class="space-y-6">
