@@ -26,3 +26,13 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Claude AI files
+.claude/
+CLAUDE.md
+.claudeignore
+.claude/settings.json
+.claude/session.json
+.claude/cache/
+*.claude
+.claude-*
