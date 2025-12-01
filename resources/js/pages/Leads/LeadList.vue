@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,7 +21,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-vue-next';
-import axios from 'axios';
 
 // Interfaces
 interface Asesor {
@@ -48,51 +47,46 @@ interface Lead {
   updated_at: string;
 }
 
-// Estado
-const leads = ref<Lead[]>([]);
-const loading = ref(true);
-const searchTerm = ref('');
+// Props
+const props = defineProps<{
+  initialLeads?: {
+    data: Lead[];
+    current_page: number;
+    last_page: number;
+    total: number;
+  };
+  filters?: {
+    buscar?: string;
+  };
+}>();
 
-// Función para cargar leads
-const fetchLeads = async () => {
-  try {
-    loading.value = true;
-    const response = await axios.get('/api/leads', {
-      params: {
-        buscar: searchTerm.value || undefined,
-        per_page: 50
-      }
-    });
-    leads.value = response.data.data.data || [];
-  } catch (error) {
-    console.error('Error al cargar leads:', error);
-  } finally {
-    loading.value = false;
-  }
+// Estado reactivo derivado de props
+const leads = computed(() => props.initialLeads?.data || []);
+const searchTerm = ref(props.filters?.buscar || '');
+
+// Buscar leads usando Inertia
+const handleSearch = () => {
+  router.get('/leads', { buscar: searchTerm.value }, {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+  });
 };
 
 // Función para eliminar lead
-const deleteLead = async (id: number) => {
+const deleteLead = (id: number) => {
   if (!confirm('¿Estás seguro de eliminar este lead?')) return;
   
-  try {
-    await axios.delete(`/api/leads/${id}`);
-    await fetchLeads();
-  } catch (error) {
-    console.error('Error al eliminar lead:', error);
-    alert('Error al eliminar el lead');
-  }
+  router.delete(`/leads/${id}`, {
+    preserveScroll: true,
+    onSuccess: () => {
+      // Opcional: Mostrar notificación toast aquí
+    },
+    onError: () => {
+      alert('Error al eliminar el lead');
+    }
+  });
 };
-
-// Buscar leads
-const handleSearch = () => {
-  fetchLeads();
-};
-
-// Cargar leads al montar el componente
-onMounted(() => {
-  fetchLeads();
-});
 </script>
 
 <template>
@@ -150,11 +144,7 @@ onMounted(() => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div v-if="loading" class="flex justify-center py-8">
-            <p class="text-muted-foreground">Cargando leads...</p>
-          </div>
-
-          <div v-else-if="leads.length === 0" class="text-center py-8">
+          <div v-if="leads.length === 0" class="text-center py-8">
             <p class="text-muted-foreground">No hay leads registrados</p>
           </div>
 
