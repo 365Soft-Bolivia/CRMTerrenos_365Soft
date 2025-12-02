@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Lead;
 use App\Models\Negocio;
+use App\Models\Terreno;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Inertia\Inertia;
 
 class LeadController extends Controller
 {
@@ -21,7 +23,8 @@ class LeadController extends Controller
      */
     public function webIndex(Request $request)
     {
-        $query = Lead::with(['asesor', 'negocio.terreno']);
+        $query = Lead::with(['asesor', 'negocio.terreno'])
+            ->where('estado', true);
 
         // Filtrar por asesor si se proporciona
         if ($request->has('asesor_id')) {
@@ -42,13 +45,79 @@ class LeadController extends Controller
     }
 
     /**
+     * Vista: Crear Lead (Inertia)
+     */
+    public function webCreate()
+    {
+        $terrenos = Terreno::disponibles()
+            ->select('id', 'ubicacion', 'numero_terreno', 'precio_venta')
+            ->orderBy('ubicacion')
+            ->get()
+            ->map(function ($terreno) {
+                return [
+                    'id' => $terreno->id,
+                    'label' => $terreno->ubicacion . ($terreno->numero_terreno ? ' - Nº ' . $terreno->numero_terreno : ''),
+                    'precio' => $terreno->precio_venta,
+                ];
+            });
+
+        return Inertia::render('Leads/LeadForm', [
+            'terrenos' => $terrenos,
+        ]);
+    }
+
+    /**
+     * Vista: Ver detalle de Lead (Inertia)
+     */
+    public function webShow($id)
+    {
+        $lead = Lead::with([
+            'asesor',
+            'negocio.terreno.proyecto',
+            'negocio.terreno.categoria',
+            'negocio.terreno.cuadra.barrio',
+            'negocio.seguimientos.asesor',
+        ])->findOrFail($id);
+
+        return Inertia::render('Leads/LeadDetail', [
+            'lead' => $lead,
+        ]);
+    }
+
+    /**
+     * Vista: Editar Lead (Inertia)
+     */
+    public function webEdit($id)
+    {
+        $lead = Lead::with(['asesor', 'negocio'])->findOrFail($id);
+
+        $terrenos = Terreno::disponibles()
+            ->select('id', 'ubicacion', 'numero_terreno', 'precio_venta')
+            ->orderBy('ubicacion')
+            ->get()
+            ->map(function ($terreno) {
+                return [
+                    'id' => $terreno->id,
+                    'label' => $terreno->ubicacion . ($terreno->numero_terreno ? ' - Nº ' . $terreno->numero_terreno : ''),
+                    'precio' => $terreno->precio_venta,
+                ];
+            });
+
+        return Inertia::render('Leads/LeadForm', [
+            'lead' => $lead,
+            'terrenos' => $terrenos,
+        ]);
+    }
+
+    /**
      * Listar todos los leads (API JSON)
      * GET /api/leads
      */
     public function index(Request $request)
     {
         try {
-            $query = Lead::with(['asesor', 'negocio.terreno']);
+            $query = Lead::with(['asesor', 'negocio.terreno'])
+                ->where('estado', true);
 
             // Filtrar por asesor si se proporciona
             if ($request->has('asesor_id')) {
@@ -94,7 +163,7 @@ class LeadController extends Controller
             'crear_acuerdo' => 'nullable|boolean',
             'convertir_automatico' => 'nullable|boolean',
             // Campos del negocio (si crear_acuerdo = true)
-            'terreno_id' => 'required_if:crear_acuerdo,true|exists:terrenos,id',
+            'terreno_id' => 'nullable|required_if:crear_acuerdo,true|exists:terrenos,id',
             'etapa' => 'required_if:crear_acuerdo,true|string|max:100',
             'fecha_inicio' => 'required_if:crear_acuerdo,true|date',
             'monto_estimado' => 'nullable|numeric|min:0',
@@ -111,6 +180,14 @@ class LeadController extends Controller
         ]);
 
         if ($validator->fails()) {
+            // Si viene desde Inertia, redirigir con errores en lugar de JSON
+            if ($request->header('X-Inertia')) {
+                return redirect()
+                    ->back()
+                    ->withErrors($validator)
+                    ->withInput();
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error de validación',
@@ -152,6 +229,13 @@ class LeadController extends Controller
 
             // Cargar relaciones
             $lead->load(['asesor', 'negocio.terreno']);
+
+            // Si viene desde Inertia, redirigir a la lista con mensaje flash
+            if ($request->header('X-Inertia')) {
+                return redirect()
+                    ->route('leads.index')
+                    ->with('success', 'Lead creado exitosamente');
+            }
 
             return response()->json([
                 'success' => true,
@@ -219,10 +303,18 @@ class LeadController extends Controller
         ]);
 
         if ($validator->fails()) {
+            // Si viene desde Inertia, redirigir con errores en lugar de JSON
+            if ($request->header('X-Inertia')) {
+                return redirect()
+                    ->back()
+                    ->withErrors($validator)
+                    ->withInput();
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error de validación',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -239,54 +331,32 @@ class LeadController extends Controller
 
             $lead->load(['asesor', 'negocio.terreno']);
 
+            // Si viene desde Inertia, redirigir a la lista con mensaje flash
+            if ($request->header('X-Inertia')) {
+                return redirect()
+                    ->route('leads.index')
+                    ->with('success', 'Lead actualizado exitosamente');
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Lead actualizado exitosamente',
-                'data' => $lead
+                'data' => $lead,
             ], 200);
 
         } catch (\Exception $e) {
+            if ($request->header('X-Inertia')) {
+                return redirect()
+                    ->back()
+                    ->withErrors(['error' => $e->getMessage()])
+                    ->withInput();
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error al actualizar el lead',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
-        }
-    }
-
-    /**
-     * Eliminar un lead
-     * DELETE /api/leads/{id}
-     */
-    /**
-     * Eliminar un lead
-     * DELETE /api/leads/{id}
-     */
-    public function destroy($id)
-    {
-        try {
-            $lead = Lead::findOrFail($id);
-            $lead->delete();
-
-            if (request()->wantsJson() && !request()->header('X-Inertia')) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Lead eliminado exitosamente'
-                ], 200);
-            }
-
-            return redirect()->back()->with('success', 'Lead eliminado exitosamente');
-
-        } catch (\Exception $e) {
-            if (request()->wantsJson() && !request()->header('X-Inertia')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Error al eliminar el lead',
-                    'error' => $e->getMessage()
-                ], 500);
-            }
-            
-            return redirect()->back()->with('error', 'Error al eliminar el lead');
         }
     }
 }

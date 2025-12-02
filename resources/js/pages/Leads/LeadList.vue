@@ -20,7 +20,9 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-vue-next';
+import { Plus, Search,Pencil, Eye, Ban } from 'lucide-vue-next';
+import { useNotification } from '@/composables/useNotification';
+import { useConfirm } from 'primevue/useconfirm';
 
 // Interfaces
 interface Asesor {
@@ -46,6 +48,11 @@ interface Lead {
   created_at: string;
   updated_at: string;
 }
+
+// Notificaciones
+const { showSuccess, showError } = useNotification();
+// Confirmación (PrimeVue)
+const confirm = useConfirm();
 
 // Props
 const props = defineProps<{
@@ -73,18 +80,26 @@ const handleSearch = () => {
   });
 };
 
-// Función para eliminar lead
-const deleteLead = (id: number) => {
-  if (!confirm('¿Estás seguro de eliminar este lead?')) return;
-  
-  router.delete(`/leads/${id}`, {
-    preserveScroll: true,
-    onSuccess: () => {
-      // Opcional: Mostrar notificación toast aquí
+// Desactivar lead con modal de confirmación
+const confirmDeactivateLead = (id: number, nombre: string) => {
+  confirm.require({
+    message: `¿Estás seguro de desactivar al lead ${nombre}?`,
+    header: 'Desactivar Lead',
+    icon: 'pi pi-exclamation-triangle',
+    acceptLabel: 'Desactivar',
+    rejectLabel: 'Cancelar',
+    acceptClass: 'p-button-danger',
+    accept: () => {
+      router.delete(`/leads/${id}`, {
+        preserveScroll: true,
+        onSuccess: () => {
+          showSuccess('Lead desactivado', 'El lead ha sido desactivado correctamente.');
+        },
+        onError: () => {
+          showError('Error al desactivar el lead', 'Ocurrió un problema al intentar desactivar el lead.');
+        },
+      });
     },
-    onError: () => {
-      alert('Error al eliminar el lead');
-    }
   });
 };
 </script>
@@ -182,15 +197,16 @@ const deleteLead = (id: number) => {
                     </Button>
                     <Button variant="ghost" size="icon" as-child>
                       <Link :href="`/leads/${lead.id}/editar`">
-                        <Edit class="h-4 w-4" />
+                        <Pencil class="h-4 w-4" />
                       </Link>
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      @click="deleteLead(lead.id)"
+                      @click="confirmDeactivateLead(lead.id, lead.nombre)"
+                      title="Desactivar lead"
                     >
-                      <Trash2 class="h-4 w-4 text-destructive" />
+                      <Ban class="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 </TableCell>
