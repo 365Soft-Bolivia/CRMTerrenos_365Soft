@@ -62,7 +62,7 @@ class RolesController extends Controller
             'activo' => $validated['activo'] ?? true,
         ]);
 
-        return redirect()->route('roles')->with('success', 'Rol creado correctamente.');
+        return redirect()->route('roles.index')->with('success', 'Rol creado correctamente.');
     }
 
     public function update(Request $request, int $id)
