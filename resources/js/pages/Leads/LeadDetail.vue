@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed } from 'vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
@@ -12,44 +12,47 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Edit, Trash2, Phone, Mail, MapPin, User, Calendar } from 'lucide-vue-next';
-import axios from 'axios';
+import { ArrowLeft, Pencil, Ban, Phone, Mail, MapPin, User, Calendar } from 'lucide-vue-next';
+import { useNotification } from '@/composables/useNotification';
+import { useConfirm } from 'primevue/useconfirm';
 
 // Props
 const props = defineProps<{
-  leadId: number;
+  lead: any;
 }>();
 
-// Estado
-const lead = ref<any>(null);
-const loading = ref(true);
+// Notificaciones
+const { showSuccess, showError } = useNotification();
+// Confirmación (PrimeVue)
+const confirm = useConfirm();
 
-// Cargar datos del lead
-const fetchLead = async () => {
-  try {
-    loading.value = true;
-    const response = await axios.get(`/api/leads/${props.leadId}`);
-    lead.value = response.data.data;
-  } catch (error) {
-    console.error('Error al cargar lead:', error);
-    alert('Error al cargar los datos del lead');
-    router.visit('/leads');
-  } finally {
-    loading.value = false;
-  }
-};
+// Estado derivado de props
+const lead = computed(() => props.lead);
+const loading = computed(() => !props.lead);
 
-// Eliminar lead
-const deleteLead = async () => {
-  if (!confirm('¿Estás seguro de eliminar este lead? Esta acción no se puede deshacer.')) return;
+// Desactivar lead con modal de confirmación
+const confirmDeactivateLead = () => {
+  if (!lead.value) return;
 
-  try {
-    await axios.delete(`/api/leads/${props.leadId}`);
-    router.visit('/leads');
-  } catch (error) {
-    console.error('Error al eliminar lead:', error);
-    alert('Error al eliminar el lead');
-  }
+  confirm.require({
+    message: `¿Estás seguro de desactivar al lead ${lead.value.nombre}?`,
+    header: 'Desactivar Lead',
+    icon: 'pi pi-exclamation-triangle',
+    acceptLabel: 'Desactivar',
+    rejectLabel: 'Cancelar',
+    acceptClass: 'p-button-danger',
+    accept: () => {
+      router.delete(`/leads/${lead.value.id}`, {
+        onSuccess: () => {
+          showSuccess('Lead desactivado', 'El lead ha sido desactivado correctamente.');
+          router.visit('/leads');
+        },
+        onError: () => {
+          showError('Error al desactivar el lead', 'Ocurrió un problema al intentar desactivar el lead.');
+        },
+      });
+    },
+  });
 };
 
 // Formatear fecha
@@ -62,10 +65,6 @@ const formatDate = (date: string) => {
   });
 };
 
-// Cargar datos al montar
-onMounted(() => {
-  fetchLead();
-});
 </script>
 
 <template>
@@ -91,14 +90,14 @@ onMounted(() => {
 
         <div v-if="!loading && lead" class="flex gap-2">
           <Button variant="outline" as-child>
-            <Link :href="`/leads/${props.leadId}/editar`">
-              <Edit class="mr-2 h-4 w-4" />
+            <Link :href="`/leads/${lead.id}/editar`">
+              <Pencil class="mr-2 h-4 w-4" />
               Editar
             </Link>
           </Button>
-          <Button variant="destructive" @click="deleteLead">
-            <Trash2 class="mr-2 h-4 w-4" />
-            Eliminar
+          <Button variant="destructive" @click="confirmDeactivateLead">
+            <Ban class="mr-2 h-4 w-4" />
+            Desactivar
           </Button>
         </div>
       </div>
@@ -240,7 +239,7 @@ onMounted(() => {
                 Puedes crear un negocio editando este lead y activando la opción "Crear Acuerdo".
               </p>
               <Button variant="outline" as-child>
-                <Link :href="`/leads/${props.leadId}/editar`">
+                <Link :href="`/leads/${lead.id}/editar`">
                   <Edit class="mr-2 h-4 w-4" />
                   Editar Lead
                 </Link>
