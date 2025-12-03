@@ -102,7 +102,7 @@ const confirmDeactivateLead = (id: number, nombre: string) => {
     },
   });
 };
-</script>
+</script> 
 
 <template>
   <Head title="Contacto de Leads" />

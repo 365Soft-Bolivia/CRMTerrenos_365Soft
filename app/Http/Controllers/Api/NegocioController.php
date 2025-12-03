@@ -25,9 +25,19 @@ class NegocioController extends Controller
                 'seguimientos'
             ]);
 
-            // Filtrar por asesor si se proporciona
-            if ($request->has('asesor_id')) {
-                $query->where('asesor_id', $request->asesor_id);
+            // Determinar asesor según rol del usuario autenticado
+            $asesorId = null;
+
+            if (Auth::check() && Auth::user()->hasRole('asesor')) {
+                // Si es asesor, siempre ve solo sus propios negocios
+                $asesorId = Auth::id();
+            } elseif ($request->has('asesor_id')) {
+                // En otros roles (ej. administrador) se puede filtrar manualmente
+                $asesorId = $request->asesor_id;
+            }
+
+            if ($asesorId) {
+                $query->where('asesor_id', $asesorId);
             }
 
             // Filtrar por etapa
@@ -65,7 +75,15 @@ class NegocioController extends Controller
     public function tablero(Request $request)
     {
         try {
-            $asesorId = $request->get('asesor_id', null);
+            // Determinar asesor según rol del usuario autenticado
+            $asesorId = null;
+
+            if (Auth::check() && Auth::user()->hasRole('asesor')) {
+                // Si es asesor, siempre ve solo sus propios negocios en el tablero
+                $asesorId = Auth::id();
+            } else {
+                $asesorId = $request->get('asesor_id', null);
+            }
             
             // Obtener todas las etapas
             $etapas = Negocio::etapas();
@@ -160,7 +178,7 @@ class NegocioController extends Controller
         }
 
         try {
-            $negocio = Negocio::findOrFail($id);
+            $negocio = Negocio::with('terreno')->findOrFail($id);
             
             $etapaAnterior = $negocio->etapa;
             $negocio->etapa = $request->etapa;
@@ -168,7 +186,12 @@ class NegocioController extends Controller
             // Si la etapa es "Cierre / Venta Concretada", marcar como convertido a cliente
             if ($request->etapa === Negocio::ETAPA_CIERRE) {
                 $negocio->convertido_cliente = true;
-                // Aquí podrías agregar lógica adicional para crear el cliente en otra tabla
+
+                // Marcar el terreno como no disponible (estado != 0)
+                if ($negocio->terreno) {
+                    $negocio->terreno->estado = 1; // o el valor que uses para "vendido/ocupado"
+                    $negocio->terreno->save();
+                }
             }
 
             $negocio->save();
@@ -283,7 +306,15 @@ class NegocioController extends Controller
     public function estadisticas(Request $request)
     {
         try {
-            $asesorId = $request->get('asesor_id', null);
+            // Determinar asesor según rol del usuario autenticado
+            $asesorId = null;
+
+            if (Auth::check() && Auth::user()->hasRole('asesor')) {
+                // Si es asesor, las estadísticas se calculan solo sobre sus propios negocios
+                $asesorId = Auth::id();
+            } else {
+                $asesorId = $request->get('asesor_id', null);
+            }
             
             $query = Negocio::query();
             

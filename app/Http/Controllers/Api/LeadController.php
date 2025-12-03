@@ -26,9 +26,19 @@ class LeadController extends Controller
         $query = Lead::with(['asesor', 'negocio.terreno'])
             ->where('estado', true);
 
-        // Filtrar por asesor si se proporciona
-        if ($request->has('asesor_id')) {
-            $query->where('asesor_id', $request->asesor_id);
+        // Determinar asesor según rol del usuario autenticado
+        $asesorId = null;
+
+        if (Auth::check() && Auth::user()->hasRole('asesor')) {
+            // Si es asesor, siempre ve solo sus propios leads
+            $asesorId = Auth::id();
+        } elseif ($request->has('asesor_id')) {
+            // En otros roles (ej. administrador) se puede filtrar manualmente
+            $asesorId = $request->asesor_id;
+        }
+
+        if ($asesorId) {
+            $query->where('asesor_id', $asesorId);
         }
 
         // Búsqueda por término
@@ -119,9 +129,19 @@ class LeadController extends Controller
             $query = Lead::with(['asesor', 'negocio.terreno'])
                 ->where('estado', true);
 
-            // Filtrar por asesor si se proporciona
-            if ($request->has('asesor_id')) {
-                $query->where('asesor_id', $request->asesor_id);
+            // Determinar asesor según rol del usuario autenticado
+            $asesorId = null;
+
+            if (Auth::check() && Auth::user()->hasRole('asesor')) {
+                // Si es asesor, siempre ve solo sus propios leads
+                $asesorId = Auth::id();
+            } elseif ($request->has('asesor_id')) {
+                // En otros roles (ej. administrador) se puede filtrar manualmente
+                $asesorId = $request->asesor_id;
+            }
+
+            if ($asesorId) {
+                $query->where('asesor_id', $asesorId);
             }
 
             // Búsqueda por término
