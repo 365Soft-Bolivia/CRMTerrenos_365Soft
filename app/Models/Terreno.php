@@ -13,6 +13,8 @@ class Terreno extends Model
 
     // Solo lectura - no permitir inserciones/actualizaciones desde el CRM
     protected $guarded = ['*'];
+    protected $hidden = ['poligono'];//oculta el campo poligono cuando el modelo se convierte a JSON.
+
 
     protected $casts = [
         'cuota_inicial' => 'decimal:2',

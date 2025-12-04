@@ -191,4 +191,136 @@ class TerrenoController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * 1. Optener terreno por ubicacion
+     */
+    public function buscarPorCodigo(Request $request)
+    {
+        $codigo = trim($request->codigo ?? '');
+        $proyectoId = $request->proyecto_id;
+
+        if (!$codigo || !$proyectoId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Código o proyecto no enviado.'
+            ]);
+        }
+
+        // Buscar el terreno con esa ubicacion
+        $terreno = \App\Models\Terreno::where('ubicacion', $codigo)
+            ->where('idproyecto', $proyectoId)
+            ->select('id', 'ubicacion')
+            ->first();
+
+        if (!$terreno) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terreno no encontrado.'
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $terreno->id,
+                'ubicacion' => $terreno->ubicacion
+            ]
+        ]);
+    }
+
+
+    /**
+     * 2. OBTENER BARRIOS POR PROYECTO
+     * GET /api/terrenos/barrios?proyecto_id=1
+     */
+    public function barrios(Request $request)
+    {
+        try {
+            $proyectoId = $request->query('proyecto_id');
+
+            if (!$proyectoId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'proyecto_id es requerido'
+                ], 400);
+            }
+
+            $barrios = \App\Models\Barrio::where('idproyecto', $proyectoId)
+                ->orderBy('nombre')
+                ->select('id', 'nombre')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $barrios
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener barrios'
+            ], 500);
+        }
+    }
+
+    /**
+     * 3. OBTENER CUADRAS POR BARRIO
+     * GET /api/terrenos/cuadras?barrio_id=5
+     */
+    public function cuadras(Request $request)
+    {
+        try {
+            $barrioId = $request->query('barrio_id');
+
+            if (!$barrioId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'barrio_id es requerido'
+                ], 400);
+            }
+
+            $cuadras = \App\Models\Cuadra::where('idbarrio', $barrioId)
+                ->orderBy('nombre')
+                ->select('id', 'nombre')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $cuadras
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener cuadras'
+            ], 500);
+        }
+    }
+
+    /**
+     * 4. OBTENER TERRENOS POR CUADRA
+     * GET /api/terrenos/por-cuadra?cuadra_id=10
+     */
+    public function porCuadra(Request $request)
+    {
+        $request->validate([
+            'cuadra_id' => 'required|numeric'
+        ]);
+
+        $terrenos = Terreno::where('idcuadra', $request->cuadra_id)
+                            ->select('id', 'numero_terreno')
+                            ->get()
+                            ->map(function($terreno) {
+                                return [
+                                    'id' => $terreno->id,
+                                    'nombre' => $terreno->numero_terreno  // ← solo número de terreno
+                                ];
+                            });
+        return response()->json([
+            'success' => true,
+            'data' => $terrenos
+        ], 200);
+    }
+
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Save } from 'lucide-vue-next';
+import { ArrowLeft, Save, Search } from 'lucide-vue-next';
 import axios from 'axios';
 
 // Props
@@ -24,8 +24,26 @@ const props = defineProps<{
 // Interfaces
 interface Terreno {
   id: number;
-  label: string;
+  //label: string;
   precio?: number;
+  area?: number;
+  codigo?: string;
+  numero?: string;
+}
+
+interface Proyecto {
+  id: number;
+  nombre: string;
+}
+
+interface Barrio {
+  id: number;
+  nombre: string;
+}
+
+interface Cuadra {
+  id: number;
+  nombre: string;
 }
 
 // Estado del formulario
@@ -37,7 +55,7 @@ const form = ref({
   direccion: '',
   crear_acuerdo: false,
   terreno_id: '' as string,
-  etapa: '🟡 Interés Generado',
+  etapa: ' Interés Generado',
   fecha_inicio: new Date().toISOString().split('T')[0],
   monto_estimado: '' as string,
   notas: '',
@@ -47,32 +65,146 @@ const errors = ref<Record<string, string>>({});
 const loading = ref(false);
 const loadingData = ref(false);
 
-// Datos para dropdowns
+const proyectos = ref<Proyecto[]>([]);
+const barrios = ref<Barrio[]>([]);
+const cuadras = ref<Cuadra[]>([]);
 const terrenos = ref<Terreno[]>([]);
+const selectedTerreno = ref<Terreno | null>(null);
+
+const filtros = ref({
+  proyecto_id: '' as string,
+  barrio_id: '' as string,
+  cuadra_id: '' as string,
+  terreno_id:'' as string,  
+  buscar_codigo: '' as string,
+});
+
 const etapas = [
-  '🟡 Interés Generado',
-  '🔵 Contacto Inicial',
-  '🟢 Visita Programada',
-  '🟢 Propuesta / Oferta',
-  '🟠 Negociación',
-  '🟢 Cierre / Venta Concretada',
-  '🔴 Perdido / No Concretado',
+  'Interés Generado',
+  'Contacto Inicial',
+  'Visita Programada',
+  'Propuesta / Oferta',
+  'Negociación',
+  'Cierre / Venta Concretada',
+  'Perdido / No Concretado',
 ];
 
 // Computed
 const isEdit = computed(() => !!props.leadId);
 const pageTitle = computed(() => isEdit.value ? 'Editar Lead' : 'Nuevo Lead');
 
-// Cargar terrenos disponibles
-const fetchTerrenos = async () => {
+// Fetch functions for hierarchical filtering
+const fetchProyectos = async () => {
   try {
-    const response = await axios.get('/api/terrenos/dropdown', {
-      params: { solo_disponibles: true }
+    const response = await axios.get('/api/terrenos/proyectos');
+    proyectos.value = response.data.data || [];
+  } catch (error) {
+    console.error('Error al cargar proyectos:', error);
+  }
+};
+
+const fetchBarrios = async () => {
+  if (!filtros.value.proyecto_id) {
+    barrios.value = [];
+    filtros.value.barrio_id = '';
+    return;
+  }
+
+  try {
+    const response = await axios.get('/api/terrenos/barrios', {  
+      params: { proyecto_id: filtros.value.proyecto_id }
     });
-    terrenos.value = response.data.data || [];
+
+    barrios.value = response.data.data || [];
+    filtros.value.barrio_id = '';
+  } catch (error) {
+    console.error('Error al cargar barrios:', error);
+  }
+};
+
+
+const fetchCuadras = async () => {
+  if (!filtros.value.barrio_id) {
+    cuadras.value = [];
+    filtros.value.cuadra_id = '';
+    return;
+  }
+
+  try {
+    const response = await axios.get('/api/terrenos/cuadras', {
+      params: { barrio_id: filtros.value.barrio_id }
+    });
+    cuadras.value = response.data.data || [];
+    filtros.value.cuadra_id = '';
+    terrenos.value = [];
+  } catch (error) {
+    console.error('Error al cargar cuadras:', error);
+  }
+};
+
+const fetchTerrenos = async () => {
+  if (!filtros.value.cuadra_id) {
+    terrenos.value = [];
+    return;
+  }
+
+  try {
+    const response = await axios.get('/api/terrenos/por-cuadra', {
+      params: { cuadra_id: filtros.value.cuadra_id }
+    });
+
+    // Mapear para que el select tenga el número
+    terrenos.value = response.data.data.map((t: any) => ({
+      id: t.id,
+      numero: `TR ${ t.nombre}`,
+      codigo: t.nombre,
+    }));
+
   } catch (error) {
     console.error('Error al cargar terrenos:', error);
   }
+};
+
+const codigoValido = ref(null as boolean | null);
+// Quick search by code function
+const buscarPorCodigo = async () => {
+  codigoValido.value = null;
+
+  if (!filtros.value.buscar_codigo) return;
+
+  try {
+    const response = await axios.get('/api/terrenos/buscar-por-codigo', {
+      params: {
+        codigo: filtros.value.buscar_codigo.trim(),
+        proyecto_id: filtros.value.proyecto_id
+      }
+    });
+
+    if (!response.data.success) {
+      codigoValido.value = false;
+      form.value.terreno_id = '';
+      return;
+    }
+
+    // Encontrado
+    const terreno = response.data.data;
+    codigoValido.value = true;
+    form.value.terreno_id = terreno.id; // guardamos solo el ID
+
+  } catch (error) {
+    console.error("Error al buscar:", error);
+    codigoValido.value = false;
+  }
+};
+
+
+
+
+
+// Function to update selected terrain preview
+const actualizarTerreno = () => {
+  const terreno = terrenos.value.find(t => t.id.toString() === form.value.terreno_id);
+  selectedTerreno.value = terreno || null;
 };
 
 // Cargar datos del lead si es edición
@@ -150,6 +282,9 @@ const handleSubmit = async () => {
       
       if (form.value.crear_acuerdo) {
         payload.terreno_id = parseInt(form.value.terreno_id);
+        if (isNaN(payload.terreno_id)) {
+          payload.terreno_id = null;
+        }
         payload.etapa = form.value.etapa;
         payload.fecha_inicio = form.value.fecha_inicio;
         payload.monto_estimado = form.value.monto_estimado ? parseFloat(form.value.monto_estimado) : null;
@@ -177,9 +312,15 @@ const handleSubmit = async () => {
   }
 };
 
+// Watchers for cascading filters
+watch(() => filtros.value.proyecto_id, fetchBarrios);
+watch(() => filtros.value.barrio_id, fetchCuadras);
+watch(() => filtros.value.cuadra_id, fetchTerrenos);
+watch(() => form.value.terreno_id, actualizarTerreno);
+
 // Cargar datos al montar
 onMounted(() => {
-  fetchTerrenos();
+  fetchProyectos();
   if (isEdit.value) {
     fetchLead();
   }
@@ -290,7 +431,7 @@ onMounted(() => {
           </CardContent>
         </Card>
 
-        <!-- Crear Acuerdo (solo en modo creación) -->
+        <!-- filtros jerárquicos  -->
         <Card v-if="!isEdit">
           <CardHeader>
             <CardTitle>Opciones de Negocio</CardTitle>
@@ -305,38 +446,154 @@ onMounted(() => {
                 id="crear_acuerdo"
                 type="checkbox"
                 v-model="form.crear_acuerdo"
-                class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-2 focus:ring-primary"
+
               />
               <Label for="crear_acuerdo" class="cursor-pointer">
                 ✅ Crear Acuerdo
               </Label>
-            </div>
-
+            </div
+            >
             <!-- Campos adicionales si crear_acuerdo está activo -->
             <div v-if="form.crear_acuerdo" class="space-y-4 pt-4 border-t">
-              <!-- Terreno -->
-              <div class="space-y-2">
-                <Label for="terreno_id">
-                  Terreno <span class="text-destructive">*</span>
-                </Label>
-                <select
-                  id="terreno_id"
-                  v-model="form.terreno_id"
-                  class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  :class="{ 'border-destructive': errors.terreno_id }"
-                >
-                  <option value="">Selecciona un terreno</option>
-                  <option
-                    v-for="terreno in terrenos"
-                    :key="terreno.id"
-                    :value="terreno.id"
-                  >
-                    {{ terreno.label }}
-                  </option>
-                </select>
-                <p v-if="errors.terreno_id" class="text-sm text-destructive">
-                  {{ errors.terreno_id }}
-                </p>
+              <!-- Filtros jerárquicos en cascada -->
+            <div class="p-4 rounded-lg">
+              <h3 class="font-semibold text-sm mb-4">Seleccionar Terreno</h3>
+              <div class="space-y-4">
+                  <!-- Proyecto -->
+                  <div class="space-y-2">
+                    <Label for="proyecto_id">Proyecto</Label>
+                    <select
+                      id="proyecto_id"
+                      v-model="filtros.proyecto_id"
+                      class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="">Selecciona un proyecto</option>
+                      <option
+                        v-for="proyecto in proyectos"
+                        :key="proyecto.id"
+                        :value="proyecto.id"
+                      >
+                        {{ proyecto.nombre }}
+                      </option>
+                    </select>
+                  </div>
+                  <div v-if="codigoValido !== null" class="mt-2">
+                    <!-- Si el terreno se encuentra -->
+                    <span v-if="codigoValido" class="p-tag p-tag-success text-lg font-bold">
+                      ✔ Código válido
+                    </span>
+
+                    <!-- Si el terreno NO se encuentra -->
+                    <span v-else class="p-tag p-tag-danger text-lg font-bold">
+                      ✘ No existe
+                    </span>
+
+                  </div>
+
+                  <!-- Búsqueda por ubicacion -->
+                  <div class="pt-2 border-t">
+                    <p class="text-xs text-muted-foreground mb-2">Búsqueda rápida:</p>
+                    <div class="flex gap-2">
+                      <Input
+                        v-model="filtros.buscar_codigo"
+                        placeholder="Ingresa código del terreno (UV001-MZ001-1)"
+                        @keyup.enter="buscarPorCodigo"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        @click="buscarPorCodigo"
+                      >
+                        <Search class="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <!-- Barrio -->
+                  <div class="space-y-2">
+                    <Label for="barrio_id" :class="{ 'opacity-50': !filtros.proyecto_id }">
+                      Barrio
+                    </Label>
+                    <select
+                      id="barrio_id"
+                      v-model="filtros.barrio_id"
+                      :disabled="!filtros.proyecto_id"
+                      class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="">Selecciona un barrio</option>
+                      <option
+                        v-for="barrio in barrios"
+                        :key="barrio.id"
+                        :value="barrio.id"
+                      >
+                        {{ barrio.nombre }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <!-- Cuadra -->
+                  <div class="space-y-2">
+                    <Label for="cuadra_id" :class="{ 'opacity-50': !filtros.barrio_id }">
+                      Cuadra
+                    </Label>
+                    <select
+                      id="cuadra_id"
+                      v-model="filtros.cuadra_id"
+                      :disabled="!filtros.barrio_id"
+                      class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="">Selecciona una cuadra</option>
+                      <option
+                        v-for="cuadra in cuadras"
+                        :key="cuadra.id"
+                        :value="cuadra.id"
+                      >
+                        {{ cuadra.nombre }}
+                      </option>
+                    </select>
+                  </div>
+                  <!-- Terreno -->
+                  <div class="space-y-2">
+                    <Label for="terreno_id" :class="{ 'opacity-50': !filtros.cuadra_id }">
+                      Terreno
+                    </Label>
+                    <select
+                      id="terreno_id"
+                      v-model="form.terreno_id"
+                      :disabled="!filtros.cuadra_id"
+                      class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">Selecciona un terreno</option>
+                    <option
+                      v-for="terreno in terrenos"
+                      :key="terreno.id"
+                      :value="terreno.id"
+                    >
+                      {{ terreno.numero }}
+                    </option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <!-- Preview del terreno seleccionado -->
+              <div v-if="selectedTerreno" class="bg-green-50 p-3 rounded-lg border border-green-200 text-sm">
+                <p class="font-semibold text-green-900 mb-2">Detalles del Terreno:</p>
+                <div class="grid grid-cols-2 gap-2 text-green-800">
+                  <div>
+                    <span class="font-medium">Código:</span> {{ selectedTerreno.codigo }}
+
+                  </div>
+                  <div>
+                    <span class="font-medium">Número:</span> {{ selectedTerreno.numero || 'N/A' }}
+                  </div>
+                  <div>
+                    <span class="font-medium">Precio:</span> ${{ selectedTerreno.precio?.toLocaleString('es-AR') || 'N/A' }}
+                  </div>
+                  <div>
+                    <span class="font-medium">Área:</span> {{ selectedTerreno.area }} m²
+                  </div>
+                </div>
               </div>
 
               <!-- Etapa -->
