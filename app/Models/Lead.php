@@ -12,6 +12,7 @@ class Lead extends Model
     protected $table = 'leads';
 
     protected $fillable = [
+        'estado',
         'nombre',
         'carnet',
         'numero_1',
@@ -21,6 +22,7 @@ class Lead extends Model
     ];
 
     protected $casts = [
+        'estado' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

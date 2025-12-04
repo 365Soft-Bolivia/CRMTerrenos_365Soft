@@ -78,7 +78,7 @@ class AccesosController extends Controller
             'role_id' => $validated['role_id'],
         ]);
 
-        return redirect()->route('accesos')->with('success', 'Usuario creado correctamente.');
+        return redirect()->route('accesos.index')->with('success', 'Usuario creado correctamente.');
     }
 
     public function update(Request $request, int $id)

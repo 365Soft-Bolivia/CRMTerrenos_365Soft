@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
-import { Head, router } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,15 +13,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Save, Search } from 'lucide-vue-next';
-import axios from 'axios';
+import { ArrowLeft, Save } from 'lucide-vue-next';
+import { useNotification } from '@/composables/useNotification';
 
 // Props
-const props = defineProps<{
-  leadId?: number;
-}>();
-
-// Interfaces
 interface Terreno {
   id: number;
   //label: string;
@@ -46,13 +41,21 @@ interface Cuadra {
   nombre: string;
 }
 
-// Estado del formulario
-const form = ref({
-  nombre: '',
-  carnet: '',
-  numero_1: '',
-  numero_2: '',
-  direccion: '',
+const props = defineProps<{
+  lead?: any;
+  terrenos?: Terreno[];
+}>();
+
+// Notificaciones
+const { showSuccess, showError } = useNotification();
+
+// Estado del formulario (useForm de Inertia), inicializado con props.lead si existe
+const form = useForm({
+  nombre: props.lead?.nombre || '',
+  carnet: props.lead?.carnet || '',
+  numero_1: props.lead?.numero_1 || '',
+  numero_2: props.lead?.numero_2 || '',
+  direccion: props.lead?.direccion || '',
   crear_acuerdo: false,
   terreno_id: '' as string,
   etapa: ' Interés Generado',
@@ -61,24 +64,8 @@ const form = ref({
   notas: '',
 });
 
-const errors = ref<Record<string, string>>({});
-const loading = ref(false);
-const loadingData = ref(false);
-
-const proyectos = ref<Proyecto[]>([]);
-const barrios = ref<Barrio[]>([]);
-const cuadras = ref<Cuadra[]>([]);
-const terrenos = ref<Terreno[]>([]);
-const selectedTerreno = ref<Terreno | null>(null);
-
-const filtros = ref({
-  proyecto_id: '' as string,
-  barrio_id: '' as string,
-  cuadra_id: '' as string,
-  terreno_id:'' as string,  
-  buscar_codigo: '' as string,
-});
-
+// Datos para dropdowns desde props
+const terrenos = computed(() => props.terrenos || []);
 const etapas = [
   'Interés Generado',
   'Contacto Inicial',
@@ -90,241 +77,57 @@ const etapas = [
 ];
 
 // Computed
-const isEdit = computed(() => !!props.leadId);
+const isEdit = computed(() => !!props.lead);
 const pageTitle = computed(() => isEdit.value ? 'Editar Lead' : 'Nuevo Lead');
-
-// Fetch functions for hierarchical filtering
-const fetchProyectos = async () => {
-  try {
-    const response = await axios.get('/api/terrenos/proyectos');
-    proyectos.value = response.data.data || [];
-  } catch (error) {
-    console.error('Error al cargar proyectos:', error);
-  }
-};
-
-const fetchBarrios = async () => {
-  if (!filtros.value.proyecto_id) {
-    barrios.value = [];
-    filtros.value.barrio_id = '';
-    return;
-  }
-
-  try {
-    const response = await axios.get('/api/terrenos/barrios', {  
-      params: { proyecto_id: filtros.value.proyecto_id }
-    });
-
-    barrios.value = response.data.data || [];
-    filtros.value.barrio_id = '';
-  } catch (error) {
-    console.error('Error al cargar barrios:', error);
-  }
-};
-
-
-const fetchCuadras = async () => {
-  if (!filtros.value.barrio_id) {
-    cuadras.value = [];
-    filtros.value.cuadra_id = '';
-    return;
-  }
-
-  try {
-    const response = await axios.get('/api/terrenos/cuadras', {
-      params: { barrio_id: filtros.value.barrio_id }
-    });
-    cuadras.value = response.data.data || [];
-    filtros.value.cuadra_id = '';
-    terrenos.value = [];
-  } catch (error) {
-    console.error('Error al cargar cuadras:', error);
-  }
-};
-
-const fetchTerrenos = async () => {
-  if (!filtros.value.cuadra_id) {
-    terrenos.value = [];
-    return;
-  }
-
-  try {
-    const response = await axios.get('/api/terrenos/por-cuadra', {
-      params: { cuadra_id: filtros.value.cuadra_id }
-    });
-
-    // Mapear para que el select tenga el número
-    terrenos.value = response.data.data.map((t: any) => ({
-      id: t.id,
-      numero: `TR ${ t.nombre}`,
-      codigo: t.nombre,
-    }));
-
-  } catch (error) {
-    console.error('Error al cargar terrenos:', error);
-  }
-};
-
-const codigoValido = ref(null as boolean | null);
-// Quick search by code function
-const buscarPorCodigo = async () => {
-  codigoValido.value = null;
-
-  if (!filtros.value.buscar_codigo) return;
-
-  try {
-    const response = await axios.get('/api/terrenos/buscar-por-codigo', {
-      params: {
-        codigo: filtros.value.buscar_codigo.trim(),
-        proyecto_id: filtros.value.proyecto_id
-      }
-    });
-
-    if (!response.data.success) {
-      codigoValido.value = false;
-      form.value.terreno_id = '';
-      return;
-    }
-
-    // Encontrado
-    const terreno = response.data.data;
-    codigoValido.value = true;
-    form.value.terreno_id = terreno.id; // guardamos solo el ID
-
-  } catch (error) {
-    console.error("Error al buscar:", error);
-    codigoValido.value = false;
-  }
-};
-
-
-
-
-
-// Function to update selected terrain preview
-const actualizarTerreno = () => {
-  const terreno = terrenos.value.find(t => t.id.toString() === form.value.terreno_id);
-  selectedTerreno.value = terreno || null;
-};
-
-// Cargar datos del lead si es edición
-const fetchLead = async () => {
-  if (!props.leadId) return;
-
-  try {
-    loadingData.value = true;
-    const response = await axios.get(`/api/leads/${props.leadId}`);
-    const lead = response.data.data;
-
-    form.value.nombre = lead.nombre;
-    form.value.carnet = lead.carnet;
-    form.value.numero_1 = lead.numero_1;
-    form.value.numero_2 = lead.numero_2 || '';
-    form.value.direccion = lead.direccion || '';
-  } catch (error) {
-    console.error('Error al cargar lead:', error);
-    alert('Error al cargar los datos del lead');
-    router.visit('/leads');
-  } finally {
-    loadingData.value = false;
-  }
-};
-
-// Validar formulario
-const validateForm = () => {
-  errors.value = {};
-
-  if (!form.value.nombre.trim()) {
-    errors.value.nombre = 'El nombre es obligatorio';
-  }
-
-  if (!form.value.carnet.trim()) {
-    errors.value.carnet = 'El carnet/CI es obligatorio';
-  }
-
-  if (!form.value.numero_1.trim()) {
-    errors.value.numero_1 = 'El número de teléfono es obligatorio';
-  }
-
-  if (form.value.crear_acuerdo) {
-    if (!form.value.terreno_id) {
-      errors.value.terreno_id = 'Debe seleccionar un terreno';
-    }
-    if (!form.value.fecha_inicio) {
-      errors.value.fecha_inicio = 'La fecha de inicio es obligatoria';
-    }
-  }
-
-  return Object.keys(errors.value).length === 0;
-};
 
 // Guardar lead
 const handleSubmit = async () => {
-  if (!validateForm()) {
-    alert('Por favor, completa todos los campos obligatorios');
-    return;
+  // Preparar payload adicional solo cuando se crea y se activa "Crear Acuerdo"
+  if (!isEdit.value && form.crear_acuerdo) {
+    form.terreno_id = form.terreno_id ? parseInt(form.terreno_id as unknown as string) as any : ('' as any);
+    form.monto_estimado = form.monto_estimado
+      ? (parseFloat(form.monto_estimado as unknown as string) as any)
+      : ('' as any);
   }
 
-  try {
-    loading.value = true;
+  const url = isEdit.value && props.lead ? `/api/leads/${props.lead.id}` : '/api/leads';
 
-    const payload: any = {
-      nombre: form.value.nombre,
-      carnet: form.value.carnet,
-      numero_1: form.value.numero_1,
-      numero_2: form.value.numero_2,
-      direccion: form.value.direccion,
-    };
+  form.clearErrors();
 
-    // Si no es edición, incluir datos del negocio
-    if (!isEdit.value) {
-      payload.crear_acuerdo = form.value.crear_acuerdo;
-      
-      if (form.value.crear_acuerdo) {
-        payload.terreno_id = parseInt(form.value.terreno_id);
-        if (isNaN(payload.terreno_id)) {
-          payload.terreno_id = null;
-        }
-        payload.etapa = form.value.etapa;
-        payload.fecha_inicio = form.value.fecha_inicio;
-        payload.monto_estimado = form.value.monto_estimado ? parseFloat(form.value.monto_estimado) : null;
-        payload.notas = form.value.notas;
-      }
-    }
-
-    if (isEdit.value) {
-      await axios.put(`/api/leads/${props.leadId}`, payload);
-    } else {
-      await axios.post('/api/leads', payload);
-    }
-
-    router.visit('/leads');
-  } catch (error: any) {
-    console.error('Error al guardar lead:', error);
-    
-    if (error.response?.data?.errors) {
-      errors.value = error.response.data.errors;
-    } else {
-      alert(error.response?.data?.message || 'Error al guardar el lead');
-    }
-  } finally {
-    loading.value = false;
+  if (isEdit.value) {
+    form.put(url, {
+      onSuccess: () => {
+        showSuccess('Lead actualizado', `El lead ${form.nombre} ha sido actualizado correctamente.`);
+        // Esperar un poco antes de navegar para que el toast sea visible
+        setTimeout(() => {
+          router.visit('/leads');
+        }, 2000);
+      },
+      onError: (errors) => {
+        console.error('Errores de validación al actualizar lead:', errors);
+        const first = errors ? (Object.values(errors)[0] as any) : null;
+        const detail = Array.isArray(first) ? first[0] : first || 'Por favor, verifica los datos ingresados e intenta nuevamente.';
+        showError('Error al guardar el lead', detail as string);
+      },
+    });
+  } else {
+    form.post(url, {
+      onSuccess: () => {
+        showSuccess('Lead creado', `El lead ${form.nombre} ha sido creado correctamente.`);
+        // Esperar un poco antes de navegar para que el toast sea visible
+        setTimeout(() => {
+          router.visit('/leads');
+        }, 2000);
+      },
+      onError: (errors) => {
+        console.error('Errores de validación al crear lead:', errors);
+        const first = errors ? (Object.values(errors)[0] as any) : null;
+        const detail = Array.isArray(first) ? first[0] : first || 'Por favor, verifica los datos ingresados e intenta nuevamente.';
+        showError('Error al guardar el lead', detail as string);
+      },
+    });
   }
 };
-
-// Watchers for cascading filters
-watch(() => filtros.value.proyecto_id, fetchBarrios);
-watch(() => filtros.value.barrio_id, fetchCuadras);
-watch(() => filtros.value.cuadra_id, fetchTerrenos);
-watch(() => form.value.terreno_id, actualizarTerreno);
-
-// Cargar datos al montar
-onMounted(() => {
-  fetchProyectos();
-  if (isEdit.value) {
-    fetchLead();
-  }
-});
 </script>
 
 <template>
@@ -345,11 +148,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-if="loadingData" class="flex justify-center py-8">
-        <p class="text-muted-foreground">Cargando datos...</p>
-      </div>
-
-      <form v-else @submit.prevent="handleSubmit" class="space-y-6">
+      <form @submit.prevent="handleSubmit" class="space-y-6">
         <!-- Información del Lead -->
         <Card>
           <CardHeader>
@@ -368,10 +167,10 @@ onMounted(() => {
                 id="nombre"
                 v-model="form.nombre"
                 placeholder="Nombre completo del cliente"
-                :class="{ 'border-destructive': errors.nombre }"
+                :class="{ 'border-destructive': form.errors.nombre }"
               />
-              <p v-if="errors.nombre" class="text-sm text-destructive">
-                {{ errors.nombre }}
+              <p v-if="form.errors.nombre" class="text-sm text-destructive">
+                {{ form.errors.nombre }}
               </p>
             </div>
 
@@ -384,10 +183,10 @@ onMounted(() => {
                 id="carnet"
                 v-model="form.carnet"
                 placeholder="Número de carnet o cédula de identidad"
-                :class="{ 'border-destructive': errors.carnet }"
+                :class="{ 'border-destructive': form.errors.carnet }"
               />
-              <p v-if="errors.carnet" class="text-sm text-destructive">
-                {{ errors.carnet }}
+              <p v-if="form.errors.carnet" class="text-sm text-destructive">
+                {{ form.errors.carnet }}
               </p>
             </div>
 
@@ -401,10 +200,10 @@ onMounted(() => {
                   id="numero_1"
                   v-model="form.numero_1"
                   placeholder="Número de teléfono"
-                  :class="{ 'border-destructive': errors.numero_1 }"
+                  :class="{ 'border-destructive': form.errors.numero_1 }"
                 />
-                <p v-if="errors.numero_1" class="text-sm text-destructive">
-                  {{ errors.numero_1 }}
+                <p v-if="form.errors.numero_1" class="text-sm text-destructive">
+                  {{ form.errors.numero_1 }}
                 </p>
               </div>
 
@@ -621,10 +420,10 @@ onMounted(() => {
                   id="fecha_inicio"
                   v-model="form.fecha_inicio"
                   type="date"
-                  :class="{ 'border-destructive': errors.fecha_inicio }"
+                  :class="{ 'border-destructive': form.errors.fecha_inicio }"
                 />
-                <p v-if="errors.fecha_inicio" class="text-sm text-destructive">
-                  {{ errors.fecha_inicio }}
+                <p v-if="form.errors.fecha_inicio" class="text-sm text-destructive">
+                  {{ form.errors.fecha_inicio }}
                 </p>
               </div>
 
@@ -660,13 +459,13 @@ onMounted(() => {
             type="button"
             variant="outline"
             @click="router.visit('/leads')"
-            :disabled="loading"
+            :disabled="form.processing"
           >
             Cancelar
           </Button>
-          <Button type="submit" :disabled="loading">
+          <Button type="submit" :disabled="form.processing">
             <Save class="mr-2 h-4 w-4" />
-            {{ loading ? 'Guardando...' : 'Guardar Lead' }}
+            {{ form.processing ? 'Guardando...' : 'Guardar Lead' }}
           </Button>
         </div>
       </form>

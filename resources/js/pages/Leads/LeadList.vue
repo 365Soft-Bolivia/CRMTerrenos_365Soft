@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,8 +20,9 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-vue-next';
-import axios from 'axios';
+import { Plus, Search,Pencil, Eye, Ban } from 'lucide-vue-next';
+import { useNotification } from '@/composables/useNotification';
+import { useConfirm } from 'primevue/useconfirm';
 
 // Interfaces
 interface Asesor {
@@ -48,52 +49,60 @@ interface Lead {
   updated_at: string;
 }
 
-// Estado
-const leads = ref<Lead[]>([]);
-const loading = ref(true);
-const searchTerm = ref('');
+// Notificaciones
+const { showSuccess, showError } = useNotification();
+// Confirmación (PrimeVue)
+const confirm = useConfirm();
 
-// Función para cargar leads
-const fetchLeads = async () => {
-  try {
-    loading.value = true;
-    const response = await axios.get('/api/leads', {
-      params: {
-        buscar: searchTerm.value || undefined,
-        per_page: 50
-      }
-    });
-    leads.value = response.data.data.data || [];
-  } catch (error) {
-    console.error('Error al cargar leads:', error);
-  } finally {
-    loading.value = false;
-  }
-};
+// Props
+const props = defineProps<{
+  initialLeads?: {
+    data: Lead[];
+    current_page: number;
+    last_page: number;
+    total: number;
+  };
+  filters?: {
+    buscar?: string;
+  };
+}>();
 
-// Función para eliminar lead
-const deleteLead = async (id: number) => {
-  if (!confirm('¿Estás seguro de eliminar este lead?')) return;
-  
-  try {
-    await axios.delete(`/api/leads/${id}`);
-    await fetchLeads();
-  } catch (error) {
-    console.error('Error al eliminar lead:', error);
-    alert('Error al eliminar el lead');
-  }
-};
+// Estado reactivo derivado de props
+const leads = computed(() => props.initialLeads?.data || []);
+const searchTerm = ref(props.filters?.buscar || '');
 
-// Buscar leads
+// Buscar leads usando Inertia
 const handleSearch = () => {
-  fetchLeads();
+  router.get('/leads', { buscar: searchTerm.value }, {
+    preserveState: true,
+    preserveScroll: true,
+    replace: true,
+  });
 };
 
-// Cargar leads al montar el componente
-onMounted(() => {
-  fetchLeads();
-});
-</script>
+// Desactivar lead con modal de confirmación
+const confirmDeactivateLead = (id: number, nombre: string) => {
+  confirm.require({
+    message: `¿Estás seguro de desactivar al lead ${nombre}?`,
+    header: 'Desactivar Lead',
+    icon: 'pi pi-exclamation-triangle',
+    acceptLabel: 'Desactivar',
+    rejectLabel: 'Cancelar',
+    acceptClass: 'p-button-danger',
+    accept: () => {
+      router.delete(`/leads/${id}`, {
+        preserveScroll: true,
+        onSuccess: () => {
+          showSuccess('Lead desactivado', 'El lead ha sido desactivado correctamente.');
+        },
+        onError: () => {
+          showError('Error al desactivar el lead', 'Ocurrió un problema al intentar desactivar el lead.');
+        },
+      });
+    },
+  });
+};
+</script> 
 
 <template>
   <Head title="Contacto de Leads" />
@@ -150,11 +159,7 @@ onMounted(() => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div v-if="loading" class="flex justify-center py-8">
-            <p class="text-muted-foreground">Cargando leads...</p>
-          </div>
-
-          <div v-else-if="leads.length === 0" class="text-center py-8">
+          <div v-if="leads.length === 0" class="text-center py-8">
             <p class="text-muted-foreground">No hay leads registrados</p>
           </div>
 
@@ -192,15 +197,16 @@ onMounted(() => {
                     </Button>
                     <Button variant="ghost" size="icon" as-child>
                       <Link :href="`/leads/${lead.id}/editar`">
-                        <Edit class="h-4 w-4" />
+                        <Pencil class="h-4 w-4" />
                       </Link>
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      @click="deleteLead(lead.id)"
+                      @click="confirmDeactivateLead(lead.id, lead.nombre)"
+                      title="Desactivar lead"
                     >
-                      <Trash2 class="h-4 w-4 text-destructive" />
+                      <Ban class="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 </TableCell>

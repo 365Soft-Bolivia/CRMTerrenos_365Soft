@@ -8,10 +8,11 @@ use Inertia\Inertia;
 Route::middleware(['auth', 'verified'])->group(function () {
     
     // VISTAS INERTIA
-    Route::get('leads', fn () => Inertia::render('Leads/LeadList'))->name('leads.index');
-    Route::get('leads/crear', fn () => Inertia::render('Leads/LeadForm'))->name('leads.create');
-    Route::get('leads/{id}', fn ($id) => Inertia::render('Leads/LeadDetail', ['leadId' => $id]))->name('leads.show');
-    Route::get('leads/{id}/editar', fn ($id) => Inertia::render('Leads/LeadForm', ['leadId' => $id]))->name('leads.edit');
+    Route::get('leads', [LeadController::class, 'webIndex'])->name('leads.index');
+    Route::get('leads/crear', [LeadController::class, 'webCreate'])->name('leads.create');
+    Route::get('leads/{id}', [LeadController::class, 'webShow'])->name('leads.show');
+    Route::get('leads/{id}/editar', [LeadController::class, 'webEdit'])->name('leads.edit');
+    Route::delete('leads/{id}', [LeadController::class, 'destroy'])->name('leads.destroy');
 
     // API ENDPOINTS - Leads
     Route::prefix('api/leads')->group(function () {

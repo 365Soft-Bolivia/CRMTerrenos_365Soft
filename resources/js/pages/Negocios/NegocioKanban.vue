@@ -14,6 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import NegocioCard from './NegocioCard.vue';
 import { BarChart3, TrendingUp, TrendingDown, DollarSign } from 'lucide-vue-next';
 import axios from 'axios';
+import { useConfirm } from 'primevue/useconfirm';
+import { useNotification } from '@/composables/useNotification';
 
 // Interfaces
 interface Lead {
@@ -66,6 +68,10 @@ const estadisticas = ref<Estadisticas | null>(null);
 const loading = ref(true);
 const draggedNegocio = ref<Negocio | null>(null);
 
+// Notificaciones y confirmación
+const { showSuccess, showError } = useNotification();
+const confirm = useConfirm();
+
 // Cargar datos del tablero
 const fetchTablero = async () => {
   try {
@@ -98,11 +104,26 @@ const handleDragOver = (event: DragEvent) => {
   event.preventDefault();
 };
 
+const actualizarEtapaNegocio = async (negocioId: number, etapa: string) => {
+  try {
+    await axios.put(`/api/negocios/${negocioId}/etapa`, { etapa });
+    await fetchTablero();
+    await fetchEstadisticas();
+    showSuccess('Negocio actualizado', 'La etapa del negocio se actualizó correctamente.');
+  } catch (error) {
+    console.error('Error al actualizar etapa:', error);
+    showError('Error al mover el negocio', 'Ocurrió un problema al intentar mover el negocio.');
+  } finally {
+    draggedNegocio.value = null;
+  }
+};
+
 const handleDrop = async (etapa: string) => {
   if (!draggedNegocio.value) return;
 
-  const negocioId = draggedNegocio.value.id;
-  const etapaAnterior = draggedNegocio.value.etapa;
+  const negocio = draggedNegocio.value;
+  const negocioId = negocio.id;
+  const etapaAnterior = negocio.etapa;
 
   // No hacer nada si se suelta en la misma etapa
   if (etapaAnterior === etapa) {
@@ -110,18 +131,26 @@ const handleDrop = async (etapa: string) => {
     return;
   }
 
-  try {
-    // Actualizar en el backend
-    await axios.put(`/api/negocios/${negocioId}/etapa`, { etapa });
+  const esCierre = etapa.includes('Cierre / Venta Concretada');
 
-    // Recargar datos
-    await fetchTablero();
-    await fetchEstadisticas();
-  } catch (error) {
-    console.error('Error al actualizar etapa:', error);
-    alert('Error al mover el negocio');
-  } finally {
-    draggedNegocio.value = null;
+  if (esCierre) {
+    // Confirmación antes de marcar como cierre/venta concretada
+    confirm.require({
+      message: `¿Confirmas mover este negocio a "Cierre / Venta Concretada"?`,
+      header: 'Confirmar cierre de negocio',
+      icon: 'pi pi-check-circle',
+      acceptLabel: 'Confirmar',
+      rejectLabel: 'Cancelar',
+      acceptClass: 'p-button-success',
+      accept: () => {
+        actualizarEtapaNegocio(negocioId, etapa);
+      },
+      reject: () => {
+        draggedNegocio.value = null;
+      },
+    });
+  } else {
+    await actualizarEtapaNegocio(negocioId, etapa);
   }
 };
 
