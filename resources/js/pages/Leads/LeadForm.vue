@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
@@ -15,15 +15,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Save } from 'lucide-vue-next';
 import { useNotification } from '@/composables/useNotification';
-
+import axios from "axios";
 // Props
 interface Terreno {
   id: number;
-  //label: string;
   precio?: number;
   area?: number;
   codigo?: string;
   numero?: string;
+  ubicacion?: string
+  numero_terreno?: string
 }
 
 interface Proyecto {
@@ -40,6 +41,13 @@ interface Cuadra {
   id: number;
   nombre: string;
 }
+interface FormWithClearErrors<T> {
+  clearErrors: () => void;
+  errors: Record<string, string>;
+  data: T;
+  reset: (...fields: string[]) => void;
+  [key: string]: any;
+}
 
 const props = defineProps<{
   lead?: any;
@@ -48,24 +56,38 @@ const props = defineProps<{
 
 // Notificaciones
 const { showSuccess, showError } = useNotification();
+type LeadFormData = {
+  nombre: string;
+  carnet: string;
+  numero_1: string;
+  numero_2: string;
+  direccion: string;
+  crear_acuerdo: boolean;
+  terreno_id: number | null;
+  etapa: string;
+  fecha_inicio: string;
+  monto_estimado: string;
+  notas: string;
+};
+
 
 // Estado del formulario (useForm de Inertia), inicializado con props.lead si existe
-const form = useForm({
+const form = useForm<LeadFormData>({
   nombre: props.lead?.nombre || '',
   carnet: props.lead?.carnet || '',
   numero_1: props.lead?.numero_1 || '',
   numero_2: props.lead?.numero_2 || '',
   direccion: props.lead?.direccion || '',
   crear_acuerdo: false,
-  terreno_id: '' as string,
-  etapa: ' Interés Generado',
+  terreno_id: null,
+  etapa: 'Interés Generado',
   fecha_inicio: new Date().toISOString().split('T')[0],
-  monto_estimado: '' as string,
+  monto_estimado: '',
   notas: '',
 });
 
 // Datos para dropdowns desde props
-const terrenos = computed(() => props.terrenos || []);
+const terrenos = computed<Terreno[]>(() => props.terrenos ?? []);
 const etapas = [
   'Interés Generado',
   'Contacto Inicial',
@@ -128,6 +150,142 @@ const handleSubmit = async () => {
     });
   }
 };
+// =======================
+// FILTROS
+// =======================
+const filtros = reactive({
+  proyecto_id: '',
+  barrio_id: '',
+  cuadra_id: '',
+  buscar_codigo: ''
+});
+onMounted(() => {
+  cargarProyectos();
+});
+
+const cargarProyectos = async () => {
+  try {
+    const { data } = await axios.get("/api/terrenos/proyectos");
+    if (data.success) {
+      proyectos.value = data.data;
+    }
+  } catch (error) {
+    console.error('Error cargando proyectos:', error);
+  }
+};
+
+
+// ==============================
+// CUANDO CAMBIA PROYECTO
+// ==============================
+watch(() => filtros.proyecto_id, async (id) => {
+  barrios.value = [];
+  cuadras.value = [];
+  terrenosSelect.value = [];
+
+  if (!id) return;
+
+  const { data } = await axios.get("/api/terrenos/barrios", {
+    params: { proyecto_id: id }
+  });
+
+  if (data.success) {
+    barrios.value = data.data;
+  }
+});
+
+
+// ==============================
+// CUANDO CAMBIA BARRIO
+// ==============================
+watch(() => filtros.barrio_id, async (id) => {
+  cuadras.value = [];
+  terrenosSelect.value = [];
+
+  if (!id) return;
+
+  const { data } = await axios.get("/api/terrenos/cuadras", {
+    params: { barrio_id: id }
+  });
+
+  if (data.success) {
+    cuadras.value = data.data;
+  }
+});
+
+
+// ==============================
+// CUANDO CAMBIA CUADRA
+// ==============================
+watch(() => filtros.cuadra_id, async (id) => {
+  terrenosSelect.value = [];
+
+  if (!id) return;
+
+  const { data } = await axios.get("/api/terrenos/por-cuadra", {
+    params: { cuadra_id: id }
+  });
+
+  if (data.success) {
+    terrenosSelect.value = data.data;
+  }
+});
+
+// =======================
+// DATA LISTS
+// =======================
+const proyectos = ref<{ id: number; nombre: string }[]>([]);
+const barrios   = ref<{ id: number; nombre: string }[]>([]);
+const cuadras   = ref<{ id: number; nombre: string }[]>([]);
+const terrenosSelect  = ref<{ id: number; nombre: string }[]>([]);
+
+
+// =======================
+// Selected terreno
+// =======================
+const selectedTerreno = computed(() => {
+  return terrenos.value.find(t => t.id == form.terreno_id) || null;
+});
+
+// =======================
+// Estado Código encontrado
+// =======================
+const codigoValido = ref<boolean|null>(null);
+
+// =======================
+// FUNCIONES
+// =======================
+const buscarPorCodigo = async () => {
+  try {
+    if (!filtros.buscar_codigo || !filtros.proyecto_id) {
+      codigoValido.value = false;
+      return;
+    }
+
+    // Normalizar: quitar espacios y guiones
+    const normalizar = (str: string) =>
+      str.toLowerCase().replace(/[\s-]+/g, '').trim();
+
+    const res = await axios.post('/api/leads/buscar-por-codigo', {
+      codigo: normalizar(filtros.buscar_codigo),
+      proyecto_id: filtros.proyecto_id
+    });
+
+    if (res.data?.success) {
+      form.terreno_id = res.data.data.id;
+      codigoValido.value = true;
+      console.log("Terreno encontrado:", res.data.data);
+    } else {
+      codigoValido.value = false;
+      console.log("Terreno no encontrado");
+    }
+  } catch (error: any) {
+    console.error("Error buscando terreno:", error.response?.data ?? error);
+    codigoValido.value = false;
+  }
+};
+
+
 </script>
 
 <template>
@@ -365,12 +523,13 @@ const handleSubmit = async () => {
                     >
                       <option value="">Selecciona un terreno</option>
                     <option
-                      v-for="terreno in terrenos"
+                      v-for="terreno in terrenosSelect"
                       :key="terreno.id"
                       :value="terreno.id"
                     >
-                      {{ terreno.numero }}
+                      {{ terreno.nombre }}
                     </option>
+
                     </select>
                   </div>
                 </div>
