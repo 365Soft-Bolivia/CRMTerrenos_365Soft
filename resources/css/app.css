@@ -81,89 +81,101 @@
     }
 }
 :root {
-    --background: #f9f8f1;        /* aths-50: Fondo general muy claro */
-    --foreground: #322216;        /* aths-950: Texto principal oscuro */
-    
-    --card: #e5e1c3;              /* aths-100: Tarjetas / contenedores */
-    --card-foreground: #322216;   /* aths-950: Texto dentro de tarjetas */
-    
-    --popover: #dbd6ac;           /* aths-200: Fondos de popovers / menús */
-    --popover-foreground: #322216;/* aths-950: Texto en popovers */
-    
-    --primary: #b09450;           /* aths-500: Botones y encabezados principales */
-    --primary-foreground: #FFFFFF;/* Texto sobre primary (blanco para contraste) */
-    
-    --secondary: #9b7a44;         /* aths-600: Botones secundarios / acentos */
-    --secondary-foreground: #FFFFFF;
-    
-    --muted: #dbd6ac;             /* aths-200: Fondos suaves / hover */
-    --muted-foreground: #6b4d35;  /* aths-800: Texto en muted */
-    
-    --accent: #c8be81;            /* aths-300: Detalles / secciones alternas */
-    --accent-foreground: #322216; /* aths-950: Texto en accent */
-    
-    --destructive: #C62828;       /* Rojo para errores / alertas */
-    --destructive-foreground: #FFFFFF;
-    
-    --border: #82603b;            /* aths-700: Bordes y líneas */
-    --input: #FFFFFF;             /* Inputs y select (blanco) */
-    --ring: #bcaa63;              /* aths-400: Focus / anillos */
-    
+    /* Tema claro: muy limpio, corporativo y centrado en azul/blanco */
+    --background: #f4f6fb;        /* Fondo general suave */
+    --foreground: #111827;        /* Texto principal oscuro */
+
+    --card: #ffffff;              /* Tarjetas / paneles */
+    --card-foreground: #111827;   /* Texto en tarjetas */
+
+    --popover: #ffffff;           /* Popovers / menús */
+    --popover-foreground: #111827;
+
+    --primary: #2563eb;           /* Azul principal */
+    --primary-foreground: #ffffff;
+
+    --secondary: #e1edff;         /* Azul muy claro para elementos secundarios */
+    --secondary-foreground: #111827;
+
+    --muted: #e5e7f3;             /* Fondos suaves / secciones neutras */
+    --muted-foreground: #6b7280;  /* Texto suave */
+
+    --accent: #e1edff;            /* Detalles en azul claro */
+    --accent-foreground: #111827;
+
+    --destructive: #dc2626;       /* Errores / alertas */
+    --destructive-foreground: #ffffff;
+
+    --border: #d4d9e6;            /* Bordes ligeros */
+    --input: #ffffff;             /* Inputs y selects */
+    --ring: #2563eb;              /* Anillo de foco */
+
     /* Colores para gráficos */
-    --chart-1: #b09450;           /* aths-500 */
-    --chart-2: #c8be81;           /* aths-300 */
-    --chart-3: #9b7a44;           /* aths-600 */
-    --chart-4: #dbd6ac;           /* aths-200 */
-    --chart-5: #82603b;           /* aths-700 */
-    
+    --chart-1: #2563eb;
+    --chart-2: #3b82f6;
+    --chart-3: #60a5fa;
+    --chart-4: #93c5fd;
+    --chart-5: #1d4ed8;
+
     --radius: 0.5rem;
-    
+
     /* Sidebar */
-    --sidebar-background: #f9f8f1; /* aths-50: Fondo sidebar */
-    --sidebar-foreground: #322216; /* aths-950: Texto sidebar */
-    --sidebar-primary: #b09450;    /* aths-500: Links principales */
-    --sidebar-primary-foreground: #FFFFFF;
-    --sidebar-accent: #9b7a44;     /* aths-600: Links secundarios */
-    --sidebar-accent-foreground: #FFFFFF;
-    --sidebar-border: #82603b;     /* aths-700: Bordes sidebar */
-    --sidebar-ring: #bcaa63;       /* aths-400: Focus sidebar */
-    --sidebar: #f9f8f1;            /* aths-50: Fondo general sidebar */
+    --sidebar-background: #ffffff;
+    --sidebar-foreground: #111827;
+    --sidebar-primary: #2563eb;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #e1edff;
+    --sidebar-accent-foreground: #111827;
+    --sidebar-border: #d4d9e6;
+    --sidebar-ring: #2563eb;
+    --sidebar: #f4f6fb;
 }
 
 .dark {
-    --background: hsl(0 0% 3.9%);
-    --foreground: hsl(0 0% 98%);
-    --card: hsl(0 0% 3.9%);
-    --card-foreground: hsl(0 0% 98%);
-    --popover: hsl(0 0% 3.9%);
-    --popover-foreground: hsl(0 0% 98%);
-    --primary: hsl(0 0% 98%);
-    --primary-foreground: hsl(0 0% 9%);
-    --secondary: hsl(0 0% 14.9%);
-    --secondary-foreground: hsl(0 0% 98%);
-    --muted: hsl(0 0% 16.08%);
-    --muted-foreground: hsl(0 0% 63.9%);
-    --accent: hsl(0 0% 14.9%);
-    --accent-foreground: hsl(0 0% 98%);
-    --destructive: hsl(0 84% 60%);
-    --destructive-foreground: hsl(0 0% 98%);
-    --border: hsl(0 0% 14.9%);
-    --input: hsl(0 0% 14.9%);
-    --ring: hsl(0 0% 83.1%);
-    --chart-1: hsl(220 70% 50%);
-    --chart-2: hsl(160 60% 45%);
-    --chart-3: hsl(30 80% 55%);
-    --chart-4: hsl(280 65% 60%);
-    --chart-5: hsl(340 75% 55%);
-    --sidebar-background: hsl(0 0% 7%);
-    --sidebar-foreground: hsl(0 0% 95.9%);
-    --sidebar-primary: hsl(360, 100%, 100%);
-    --sidebar-primary-foreground: hsl(0 0% 100%);
-    --sidebar-accent: hsl(0 0% 15.9%);
-    --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
-    --sidebar-border: hsl(0 0% 15.9%);
-    --sidebar-ring: hsl(217.2 91.2% 59.8%);
-    --sidebar: hsl(240 5.9% 10%);
+    /* Tema oscuro: gris azulado, cómodo para uso prolongado */
+    --background: #050816;        /* Fondo general muy oscuro */
+    --foreground: #e5e7eb;        /* Texto principal claro */
+
+    --card: #0b1020;              /* Tarjetas ligeramente elevadas */
+    --card-foreground: #e5e7eb;
+
+    --popover: #0b1020;
+    --popover-foreground: #e5e7eb;
+
+    --primary: #3b82f6;           /* Azul vivo en oscuro */
+    --primary-foreground: #050816;
+
+    --secondary: #1d4ed8;         /* Azul intenso secundario */
+    --secondary-foreground: #e5e7eb;
+
+    --muted: #0f172a;             /* Fondos suaves oscuros */
+    --muted-foreground: #9ca3af;  /* Texto suave */
+
+    --accent: #111827;            /* Paneles resaltados */
+    --accent-foreground: #e5e7eb;
+
+    --destructive: #ef4444;
+    --destructive-foreground: #0b1120;
+
+    --border: #1f2933;
+    --input: #050816;
+    --ring: #3b82f6;
+
+    --chart-1: #3b82f6;
+    --chart-2: #2563eb;
+    --chart-3: #60a5fa;
+    --chart-4: #93c5fd;
+    --chart-5: #1d4ed8;
+
+    --sidebar-background: #050816;
+    --sidebar-foreground: #e5e7eb;
+    --sidebar-primary: #3b82f6;
+    --sidebar-primary-foreground: #050816;
+    --sidebar-accent: #1d4ed8;
+    --sidebar-accent-foreground: #e5e7eb;
+    --sidebar-border: #1f2933;
+    --sidebar-ring: #3b82f6;
+    --sidebar: #050816;
 }
 
 @layer base {
