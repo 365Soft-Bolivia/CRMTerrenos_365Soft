@@ -79,20 +79,40 @@ class LeadController extends Controller
     /**
      * Vista: Ver detalle de Lead (Inertia)
      */
-    public function webShow($id)
-    {
-        $lead = Lead::with([
-            'asesor',
-            'negocio.terreno.proyecto',
-            'negocio.terreno.categoria',
-            'negocio.terreno.cuadra.barrio',
-            'negocio.seguimientos.asesor',
-        ])->findOrFail($id);
+public function webShow($id)
+{
+    $lead = Lead::with([
+        'asesor',
+        'negocio.terreno.proyecto',
+        'negocio.terreno.categoria',
+        'negocio.terreno.cuadra.barrio',
+        'negocio.seguimientos.asesor',
+    ])->findOrFail($id);
 
-        return Inertia::render('Leads/LeadDetail', [
-            'lead' => $lead,
-        ]);
-    }
+    $sanitizeUtf8 = function (&$data) use (&$sanitizeUtf8) {
+        if (is_array($data) || $data instanceof \ArrayAccess) {
+            foreach ($data as &$value) {
+                $sanitizeUtf8($value);
+            }
+        } elseif (is_object($data)) {
+            foreach ($data as $key => &$value) {
+                $sanitizeUtf8($value);
+            }
+        } elseif (is_string($data)) {
+            $data = mb_convert_encoding($data, 'UTF-8', 'UTF-8');
+        }
+    };
+
+    $leadArray = $lead->toArray();
+    $sanitizeUtf8($leadArray);
+
+    return Inertia::render('Leads/LeadDetail', [
+        'lead' => $leadArray,
+    ]);
+}
+
+
+
 
     /**
      * Vista: Editar Lead (Inertia)
@@ -301,6 +321,17 @@ class LeadController extends Controller
             ], 404);
         }
     }
+    public function destroy($id)
+    {
+        try {
+            $lead = Lead::findOrFail($id);
+            $lead->delete();
+
+            return redirect()->back()->with('success', 'Lead eliminado correctamente');
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'No se pudo eliminar el lead');
+        }
+    }
 
     /**
      * Actualizar un lead
@@ -379,4 +410,46 @@ class LeadController extends Controller
             ], 500);
         }
     }
+    public function buscarPorCodigo(Request $request)
+    {
+        $codigo = trim($request->codigo ?? '');
+        $proyectoId = (int) ($request->proyecto_id ?? 0);
+
+        if (!$codigo || !$proyectoId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Código o proyecto no enviado.'
+            ], 400);
+        }
+
+        // Normalizar: mayúsculas y quitar espacios o guiones
+        $codigoNormalizado = strtoupper($codigo);
+        $codigoNormalizado = preg_replace('/[\s-]+/', '', $codigoNormalizado);
+
+        // Usando scopes de tu modelo
+        $terreno = \App\Models\Terreno::delProyecto($proyectoId)
+            ->get()
+            ->first(function($t) use ($codigoNormalizado) {
+                if (!$t->ubicacion) return false;
+                $ubicacion = strtoupper($t->ubicacion);
+                $ubicacion = preg_replace('/[\s-]+/', '', $ubicacion);
+                return $ubicacion === $codigoNormalizado;
+            });
+
+        if (!$terreno) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terreno no encontrado.'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $terreno->id,
+                'ubicacion' => $terreno->ubicacion
+            ]
+        ], 200);
+    }
 }
+
