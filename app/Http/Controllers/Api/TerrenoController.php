@@ -98,7 +98,7 @@ class TerrenoController extends Controller
     }
 
     /**
-     * Listar proyectos para filtros
+     * Listar proyectos para filtros o busqueda por ubicacion
      * GET /api/terrenos/proyectos
      */
     public function proyectos()
@@ -197,37 +197,61 @@ class TerrenoController extends Controller
      */
     public function buscarPorCodigo(Request $request)
     {
-        $codigo = trim($request->codigo ?? '');
-        $proyectoId = $request->proyecto_id;
+        try {
+            $codigo = strtoupper(trim($request->codigo ?? ''));
+            $proyectoId = $request->proyecto_id ?? null;
 
-        if (!$codigo || !$proyectoId) {
+            // Validar datos de entrada
+            if (!$codigo) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Código vacío.'
+                ], 400);
+            }
+
+            if (!$proyectoId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Proyecto no enviado.'
+                ], 400);
+            }
+
+            // Normalizar espacios (QUITA espacios dobles)
+            $codigo = preg_replace('/\s+/', ' ', $codigo);
+
+            // Buscar terreno (Coincidencia flexible)
+            $terreno = \App\Models\Terreno::whereRaw('UPPER(ubicacion) LIKE ?', ["%{$codigo}%"])
+                ->where('idproyecto', $proyectoId)
+                ->select('id', 'ubicacion')
+                ->first();
+
+            // No encontrado
+            if (!$terreno) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Terreno no encontrado.'
+                ], 404);
+            }
+
+            // Encontrado
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $terreno->id,
+                    'ubicacion' => $terreno->ubicacion
+                ]
+            ], 200);
+
+        } catch (\Throwable $e) {
+            // Error interno
             return response()->json([
                 'success' => false,
-                'message' => 'Código o proyecto no enviado.'
-            ]);
+                'message' => 'Error interno del servidor.',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        // Buscar el terreno con esa ubicacion
-        $terreno = \App\Models\Terreno::where('ubicacion', $codigo)
-            ->where('idproyecto', $proyectoId)
-            ->select('id', 'ubicacion')
-            ->first();
-
-        if (!$terreno) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Terreno no encontrado.'
-            ]);
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'id' => $terreno->id,
-                'ubicacion' => $terreno->ubicacion
-            ]
-        ]);
     }
+
 
 
     /**
