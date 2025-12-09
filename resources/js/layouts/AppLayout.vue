@@ -14,7 +14,14 @@ withDefaults(defineProps<Props>(), {
 
 <template>
     <Toast position="top-right" />
-    <ConfirmDialog />
+    <ConfirmDialog>
+        <template #message="slotProps">
+            <div class="flex flex-col items-center w-full gap-4">
+                <i :class="slotProps.message.icon" class="text-4xl text-primary"></i>
+                <p class="text-sm" v-html="slotProps.message.message"></p>
+            </div>
+        </template>
+    </ConfirmDialog>
     <AppSidebarLayout :breadcrumbs="breadcrumbs">
         <slot />
     </AppSidebarLayout>
