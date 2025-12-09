@@ -85,18 +85,18 @@ class NegocioController extends Controller
                 $asesorId = $request->get('asesor_id', null);
             }
             
-            // Obtener todas las etapas
-            $etapas = Negocio::etapas();
+            // Obtener embudos desde la base de datos ordenados
+            $embudos = \App\Models\Embudo::activos()->ordenado()->get();
             
             $tablero = [];
 
-            foreach ($etapas as $etapa) {
+            foreach ($embudos as $embudo) {
                 $query = Negocio::with([
                     'lead',
                     'terreno.proyecto',
                     'terreno.categoria',
                     'asesor'
-                ])->where('etapa', $etapa);
+                ])->where('etapa', $embudo->nombre);
 
                 // Filtrar por asesor si se proporciona
                 if ($asesorId) {
@@ -106,7 +106,9 @@ class NegocioController extends Controller
                 $negocios = $query->orderBy('created_at', 'desc')->get();
 
                 $tablero[] = [
-                    'etapa' => $etapa,
+                    'etapa' => $embudo->nombre,
+                    'color' => $embudo->color,
+                    'icono' => $embudo->icono,
                     'cantidad' => $negocios->count(),
                     'negocios' => $negocios
                 ];
@@ -162,11 +164,13 @@ class NegocioController extends Controller
      */
     public function actualizarEtapa(Request $request, $id)
     {
+        // Obtener etapas válidas desde la BD
+        $etapasValidas = Negocio::etapas();
+        
         $validator = Validator::make($request->all(), [
-            'etapa' => 'required|string|max:100|in:' . implode(',', Negocio::etapas()),
+            'etapa' => 'required|string|max:100',
         ], [
             'etapa.required' => 'La etapa es obligatoria',
-            'etapa.in' => 'La etapa seleccionada no es válida',
         ]);
 
         if ($validator->fails()) {
@@ -177,14 +181,23 @@ class NegocioController extends Controller
             ], 422);
         }
 
+        // Validar que la etapa exista en la BD
+        if (!in_array($request->etapa, $etapasValidas)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La etapa seleccionada no es válida',
+                'errors' => ['etapa' => ['La etapa seleccionada no existe en el sistema']]
+            ], 422);
+        }
+
         try {
             $negocio = Negocio::with('terreno')->findOrFail($id);
             
             $etapaAnterior = $negocio->etapa;
             $negocio->etapa = $request->etapa;
 
-            // Si la etapa es "Cierre / Venta Concretada", marcar como convertido a cliente
-            if ($request->etapa === Negocio::ETAPA_CIERRE) {
+            // Si la etapa contiene "Cierre" o "Venta Concretada", marcar como convertido a cliente
+            if (str_contains($request->etapa, 'Cierre') || str_contains($request->etapa, 'Venta Concretada')) {
                 $negocio->convertido_cliente = true;
 
                 // Marcar el terreno como no disponible (estado != 0)

@@ -1,4 +1,4 @@
-import { Folder, MapPinned, MapPin, Tag, LockKeyhole, Users, Briefcase, MessageSquare } from 'lucide-vue-next'; // ✅ Agregar MessageSquare
+import { Folder, MapPinned, MapPin, Tag, LockKeyhole, Users, Briefcase, MessageSquare, Settings2 } from 'lucide-vue-next';
 import { dashboard, proyectos, terrenos, categorias } from '@/routes';
 import type { NavItem } from '@/types';
 
@@ -47,7 +47,13 @@ export const leadsNavItems: NavItem[] = [
     icon: Briefcase,
   },
   {
-    title: 'WhatsApp', // ✅ AGREGAR ESTE ÍTEM
+    title: 'Configurar Embudos',
+    href: '/negocios/embudos',
+    icon: Settings2,
+    roles: ['admin'],
+  },
+  {
+    title: 'WhatsApp',
     href: '/whatsapp',
     icon: MessageSquare,
   },

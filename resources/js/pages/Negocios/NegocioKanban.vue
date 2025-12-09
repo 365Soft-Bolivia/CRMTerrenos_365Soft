@@ -47,6 +47,8 @@ interface Negocio {
 
 interface EtapaData {
   etapa: string;
+  color?: string;
+  icono?: string;
   cantidad: number;
   negocios: Negocio[];
 }
@@ -244,9 +246,15 @@ const handleDrop = async (etapa: string) => {
   }
 };
 
-// Obtener color según la etapa - Diseño mejorado con paleta más amplia
-const getEtapaColor = (etapa: string) => {
-  // Mapeo de emojis a colores específicos (Colores sólidos sin gradientes)
+// Obtener color según la etapa - Usa el color hexadecimal de la BD
+const getEtapaColor = (etapaData: EtapaData) => {
+  // Si tiene color desde la BD, usar estilos dinámicos con el hexadecimal
+  if (etapaData.color) {
+    return ''; // Se manejará con style inline
+  }
+  
+  // Fallback: Mapeo de emojis a colores específicos (Colores sólidos sin gradientes)
+  const etapa = etapaData.etapa;
   if (etapa.includes('🟡')) return 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-700/50';
   if (etapa.includes('🔵')) return 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700/50';
   if (etapa.includes('🟢')) return 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-700/50';
@@ -254,18 +262,25 @@ const getEtapaColor = (etapa: string) => {
   if (etapa.includes('🔴')) return 'bg-rose-50 border-rose-200 dark:bg-rose-900/20 dark:border-rose-700/50';
   if (etapa.includes('🟣')) return 'bg-purple-50 border-purple-200 dark:bg-purple-900/20 dark:border-purple-700/50';
   if (etapa.includes('🟤')) return 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700/50';
-  
-  // Colores por defecto basados en palabras clave si no hay emoji
-  const lowerEtapa = etapa.toLowerCase();
-  if (lowerEtapa.includes('nuevo') || lowerEtapa.includes('prospecto')) return 'bg-sky-50 border-sky-200 dark:bg-sky-900/20 dark:border-sky-700/50';
-  if (lowerEtapa.includes('contacto') || lowerEtapa.includes('llamada')) return 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-700/50';
-  if (lowerEtapa.includes('visita') || lowerEtapa.includes('cita')) return 'bg-violet-50 border-violet-200 dark:bg-violet-900/20 dark:border-violet-700/50';
-  if (lowerEtapa.includes('negociacion') || lowerEtapa.includes('propuesta')) return 'bg-fuchsia-50 border-fuchsia-200 dark:bg-fuchsia-900/20 dark:border-fuchsia-700/50';
-  if (lowerEtapa.includes('cierre') || lowerEtapa.includes('venta')) return 'bg-teal-50 border-teal-200 dark:bg-teal-900/20 dark:border-teal-700/50';
-  if (lowerEtapa.includes('perdido') || lowerEtapa.includes('cancelado')) return 'bg-slate-50 border-slate-200 dark:bg-slate-900/20 dark:border-slate-700/50';
 
   // Fallback genérico elegante
-  return 'bg-gradient-to-b from-gray-50 to-gray-100/50 border-gray-200 shadow-sm shadow-gray-100/50 dark:from-gray-800 dark:to-gray-900 dark:border-gray-700';
+  return 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700';
+};
+
+// Obtener estilos inline para el color del embudo desde la BD
+const getEtapaStyle = (etapaData: EtapaData) => {
+  if (!etapaData.color) return {};
+  
+  // Convertir hex a RGB para crear versiones transparentes
+  const hex = etapaData.color.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  
+  return {
+    backgroundColor: `rgba(${r}, ${g}, ${b}, 0.1)`,
+    borderColor: `rgba(${r}, ${g}, ${b}, 0.3)`,
+  };
 };
 
 // Formatear moneda
@@ -378,7 +393,8 @@ onMounted(() => {
           >
             <!-- Card con fondo de color según etapa -->
             <Card
-              :class="['transition-all duration-300 hover:shadow-lg rounded-xl', getEtapaColor(etapaData.etapa)]"
+              :class="['transition-all duration-300 hover:shadow-lg rounded-xl border', getEtapaColor(etapaData)]"
+              :style="getEtapaStyle(etapaData)"
               @dragover="handleDragOver"
               @drop="handleDrop(etapaData.etapa)"
             >

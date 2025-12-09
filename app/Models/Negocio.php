@@ -16,6 +16,7 @@ class Negocio extends Model
         'terreno_id',
         'tipo_operacion',
         'embudo',
+        'embudo_id',
         'etapa',
         'fecha_inicio',
         'monto_estimado',
@@ -32,26 +33,21 @@ class Negocio extends Model
         'updated_at' => 'datetime',
     ];
 
-    // Constantes para etapas
-    const ETAPA_INTERES = '🟡 Interés Generado';
-    const ETAPA_CONTACTO = '🔵 Contacto Inicial';
-    const ETAPA_VISITA = '🟢 Visita Programada';
-    const ETAPA_PROPUESTA = '🟢 Propuesta / Oferta';
-    const ETAPA_NEGOCIACION = '🟠 Negociación';
-    const ETAPA_CIERRE = '🟢 Cierre / Venta Concretada';
-    const ETAPA_PERDIDO = '🔴 Perdido / No Concretado';
+    // Constantes para etapas (sin emojis - ahora se obtienen de la BD)
+    const ETAPA_INTERES = 'Interés Generado';
+    const ETAPA_CONTACTO = 'Contacto Inicial';
+    const ETAPA_VISITA = 'Visita Programada';
+    const ETAPA_PROPUESTA = 'Propuesta / Oferta';
+    const ETAPA_NEGOCIACION = 'Negociación';
+    const ETAPA_CIERRE = 'Cierre / Venta Concretada';
+    const ETAPA_PERDIDO = 'Perdido / No Concretado';
 
+    /**
+     * Obtener todas las etapas disponibles desde la tabla embudos
+     */
     public static function etapas()
     {
-        return [
-            self::ETAPA_INTERES,
-            self::ETAPA_CONTACTO,
-            self::ETAPA_VISITA,
-            self::ETAPA_PROPUESTA,
-            self::ETAPA_NEGOCIACION,
-            self::ETAPA_CIERRE,
-            self::ETAPA_PERDIDO,
-        ];
+        return Embudo::activos()->ordenado()->pluck('nombre')->toArray();
     }
 
     /**
@@ -76,6 +72,14 @@ class Negocio extends Model
     public function asesor()
     {
         return $this->belongsTo(User::class, 'asesor_id');
+    }
+
+    /**
+     * Relación: Un negocio pertenece a un embudo/etapa
+     */
+    public function embudoRelacion()
+    {
+        return $this->belongsTo(Embudo::class, 'embudo_id');
     }
 
     /**
