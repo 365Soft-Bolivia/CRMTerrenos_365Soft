@@ -19,7 +19,9 @@ class NegocioController extends Controller
         try {
             $query = Negocio::with([
                 'lead',
-                'terreno.proyecto',
+                'terreno.proyecto' => function($query) {
+                    $query->select(['id', 'nombre', 'descripcion', 'fecha_lanzamiento', 'numero_lotes', 'ubicacion', 'fotografia', 'estado']);
+                },
                 'terreno.categoria',
                 'asesor',
                 'seguimientos'
@@ -93,7 +95,9 @@ class NegocioController extends Controller
             foreach ($embudos as $embudo) {
                 $query = Negocio::with([
                     'lead',
-                    'terreno.proyecto',
+                    'terreno.proyecto' => function($query) {
+                        $query->select(['id', 'nombre', 'descripcion', 'fecha_lanzamiento', 'numero_lotes', 'ubicacion', 'fotografia', 'estado']);
+                    },
                     'terreno.categoria',
                     'asesor'
                 ])->where('etapa', $embudo->nombre);
@@ -137,7 +141,9 @@ class NegocioController extends Controller
         try {
             $negocio = Negocio::with([
                 'lead',
-                'terreno.proyecto',
+                'terreno.proyecto' => function($query) {
+                    $query->select(['id', 'nombre', 'descripcion', 'fecha_lanzamiento', 'numero_lotes', 'ubicacion', 'fotografia', 'estado']);
+                },
                 'terreno.categoria',
                 'terreno.cuadra.barrio',
                 'asesor',

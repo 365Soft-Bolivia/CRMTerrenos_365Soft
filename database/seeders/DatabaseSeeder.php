@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
         // Seed de roles básicos
         $this->call([
             RolesSeeder::class,
+            EmbudoSeeder::class,
         ]);
 
         // Usuario de prueba con rol Administrador
