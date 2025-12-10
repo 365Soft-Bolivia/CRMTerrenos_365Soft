@@ -106,7 +106,7 @@ const isLastColumn = computed(() =>
 </script>
 
 <template>
-  <Link :href="`/negocios/${negocio.id}`">
+  <a :href="`/leads/${negocio.lead.id}`">
     <Card
       draggable="true"
       @dragstart="handleDragStart"
@@ -192,5 +192,5 @@ const isLastColumn = computed(() =>
         </div>
       </CardContent>
     </Card>
-  </Link>
+  </a>
 </template>

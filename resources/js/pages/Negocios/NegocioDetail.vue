@@ -379,10 +379,10 @@ onMounted(() => {
                 Información del Cliente
               </CardTitle>
               <CardDescription>
-                <Link :href="`/leads/${negocio.lead.id}`" class="text-primary hover:underline inline-flex items-center gap-1">
+                <a :href="`/leads/${negocio.lead.id}`" class="text-primary hover:underline inline-flex items-center gap-1">
                   Ver perfil completo del lead
                   <ArrowLeft class="h-3 w-3 rotate-180" />
-                </Link>
+                </a>
               </CardDescription>
             </CardHeader>
             <CardContent class="space-y-4 pt-6">
@@ -604,10 +604,10 @@ onMounted(() => {
             </CardHeader>
             <CardContent class="space-y-2">
               <Button variant="outline" class="w-full justify-start transition-all duration-200 hover:border-primary hover:bg-primary/5 hover:translate-x-1" as-child>
-                <Link :href="`/leads/${negocio.lead.id}`">
+                <a :href="`/leads/${negocio.lead.id}`">
                   <User class="mr-2 h-4 w-4" />
                   Ver Perfil del Lead
-                </Link>
+                </a>
               </Button>
               <Button variant="outline" class="w-full justify-start transition-all duration-200 hover:border-primary hover:bg-primary/5 hover:translate-x-1" as-child>
                 <a :href="`tel:${negocio.lead.numero_1}`">
