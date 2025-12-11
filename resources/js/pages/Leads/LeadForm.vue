@@ -13,9 +13,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Save } from 'lucide-vue-next';
+import { ArrowLeft, Save, Map, Search, XCircle } from 'lucide-vue-next';
 import { useNotification } from '@/composables/useNotification';
 import axios from "axios";
+import SeleccionTerrenoMapa from '@/components/SeleccionTerrenoMapa.vue';
+
 // Props
 interface Terreno {
   id: number;
@@ -41,13 +43,6 @@ interface Cuadra {
   id: number;
   nombre: string;
 }
-interface FormWithClearErrors<T> {
-  clearErrors: () => void;
-  errors: Record<string, string>;
-  data: T;
-  reset: (...fields: string[]) => void;
-  [key: string]: any;
-}
 
 const props = defineProps<{
   lead?: any;
@@ -56,6 +51,7 @@ const props = defineProps<{
 
 // Notificaciones
 const { showSuccess, showError } = useNotification();
+
 type LeadFormData = {
   nombre: string;
   carnet: string;
@@ -69,7 +65,6 @@ type LeadFormData = {
   monto_estimado: string;
   notas: string;
 };
-
 
 // Estado del formulario (useForm de Inertia), inicializado con props.lead si existe
 const form = useForm<LeadFormData>({
@@ -102,6 +97,25 @@ const etapas = [
 const isEdit = computed(() => !!props.lead);
 const pageTitle = computed(() => isEdit.value ? 'Editar Lead' : 'Nuevo Lead');
 
+// Estado del mapa
+const showMapa = ref(false);
+
+// ===== NUEVOS ESTADOS PARA CONTROL DE MÉTODOS DE BÚSQUEDA =====
+const metodoSeleccionado = ref<'mapa' | 'codigo' | 'cascada' | null>(null);
+
+// Computed para deshabilitar métodos
+const mapaDeshabilitado = computed(() => 
+  metodoSeleccionado.value !== null && metodoSeleccionado.value !== 'mapa'
+);
+
+const codigoDeshabilitado = computed(() => 
+  metodoSeleccionado.value !== null && metodoSeleccionado.value !== 'codigo'
+);
+
+const cascadaDeshabilitada = computed(() => 
+  metodoSeleccionado.value !== null && metodoSeleccionado.value !== 'cascada'
+);
+
 // Guardar lead
 const handleSubmit = async () => {
   // Preparar payload adicional solo cuando se crea y se activa "Crear Acuerdo"
@@ -120,7 +134,6 @@ const handleSubmit = async () => {
     form.put(url, {
       onSuccess: () => {
         showSuccess('Lead actualizado', `El lead ${form.nombre} ha sido actualizado correctamente.`);
-        // Esperar un poco antes de navegar para que el toast sea visible
         setTimeout(() => {
           router.visit('/leads');
         }, 2000);
@@ -136,7 +149,6 @@ const handleSubmit = async () => {
     form.post(url, {
       onSuccess: () => {
         showSuccess('Lead creado', `El lead ${form.nombre} ha sido creado correctamente.`);
-        // Esperar un poco antes de navegar para que el toast sea visible
         setTimeout(() => {
           router.visit('/leads');
         }, 2000);
@@ -150,6 +162,7 @@ const handleSubmit = async () => {
     });
   }
 };
+
 // =======================
 // FILTROS
 // =======================
@@ -159,6 +172,7 @@ const filtros = reactive({
   cuadra_id: '',
   buscar_codigo: ''
 });
+
 onMounted(() => {
   cargarProyectos();
 });
@@ -173,7 +187,6 @@ const cargarProyectos = async () => {
     console.error('Error cargando proyectos:', error);
   }
 };
-
 
 // ==============================
 // CUANDO CAMBIA PROYECTO
@@ -194,13 +207,17 @@ watch(() => filtros.proyecto_id, async (id) => {
   }
 });
 
-
 // ==============================
 // CUANDO CAMBIA BARRIO
 // ==============================
 watch(() => filtros.barrio_id, async (id) => {
   cuadras.value = [];
   terrenosSelect.value = [];
+
+  // Activar método cascada cuando se selecciona barrio
+  if (id && !metodoSeleccionado.value) {
+    metodoSeleccionado.value = 'cascada';
+  }
 
   if (!id) return;
 
@@ -212,7 +229,6 @@ watch(() => filtros.barrio_id, async (id) => {
     cuadras.value = data.data;
   }
 });
-
 
 // ==============================
 // CUANDO CAMBIA CUADRA
@@ -239,7 +255,6 @@ const barrios   = ref<{ id: number; nombre: string }[]>([]);
 const cuadras   = ref<{ id: number; nombre: string }[]>([]);
 const terrenosSelect  = ref<{ id: number; nombre: string }[]>([]);
 
-
 // =======================
 // Selected terreno
 // =======================
@@ -261,6 +276,9 @@ const buscarPorCodigo = async () => {
       codigoValido.value = false;
       return;
     }
+
+    // Activar método código
+    metodoSeleccionado.value = 'codigo';
 
     // Normalizar: quitar espacios y guiones
     const normalizar = (str: string) =>
@@ -285,7 +303,49 @@ const buscarPorCodigo = async () => {
   }
 };
 
+// Manejar selección desde el mapa
+const handleTerrenoSeleccionado = (terreno: any) => {
+  console.log('Terreno seleccionado desde mapa:', terreno);
+  
+  form.terreno_id = terreno.id;
+  codigoValido.value = true;
+  metodoSeleccionado.value = 'mapa';
+  
+  showSuccess('Terreno seleccionado', `Has seleccionado el terreno ${terreno.ubicacion}`);
+};
 
+// Cancelar selección de terreno
+const cancelarSeleccionTerreno = () => {
+  console.log('Cancelando selección de terreno');
+  
+  form.terreno_id = null;
+  codigoValido.value = null;
+  metodoSeleccionado.value = null;
+  
+  // Limpiar filtros
+  filtros.buscar_codigo = '';
+  filtros.barrio_id = '';
+  filtros.cuadra_id = '';
+  terrenosSelect.value = [];
+  
+  console.log('Selección cancelada y filtros limpiados');
+};
+
+// Abrir mapa
+const abrirMapa = () => {
+  console.log('Abriendo mapa. Proyecto ID:', filtros.proyecto_id);
+  
+  if (!filtros.proyecto_id) {
+    console.warn('No hay proyecto seleccionado');
+    showError('Selecciona un proyecto', 'Debes seleccionar un proyecto antes de abrir el mapa');
+    return;
+  }
+  
+  showMapa.value = true;
+  metodoSeleccionado.value = 'mapa';
+  
+  console.log('Estado del mapa actualizado:', { showMapa: showMapa.value, metodo: metodoSeleccionado.value });
+};
 </script>
 
 <template>
@@ -388,7 +448,7 @@ const buscarPorCodigo = async () => {
           </CardContent>
         </Card>
 
-        <!-- filtros jerárquicos  -->
+        <!-- Opciones de Negocio -->
         <Card v-if="!isEdit">
           <CardHeader>
             <CardTitle>Opciones de Negocio</CardTitle>
@@ -403,144 +463,55 @@ const buscarPorCodigo = async () => {
                 id="crear_acuerdo"
                 type="checkbox"
                 v-model="form.crear_acuerdo"
-
               />
               <Label for="crear_acuerdo" class="cursor-pointer">
                 ✅ Crear Acuerdo
               </Label>
-            </div
-            >
+            </div>
+
             <!-- Campos adicionales si crear_acuerdo está activo -->
             <div v-if="form.crear_acuerdo" class="space-y-4 pt-4 border-t">
-              <!-- Filtros jerárquicos en cascada -->
-            <div class="p-4 rounded-lg">
-              <h3 class="font-semibold text-sm mb-4">Seleccionar Terreno</h3>
-              <div class="space-y-4">
-                  <!-- Proyecto -->
-                  <div class="space-y-2">
-                    <Label for="proyecto_id">Proyecto</Label>
-                    <select
-                      id="proyecto_id"
-                      v-model="filtros.proyecto_id"
-                      class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <option value="">Selecciona un proyecto</option>
-                      <option
-                        v-for="proyecto in proyectos"
-                        :key="proyecto.id"
-                        :value="proyecto.id"
-                      >
-                        {{ proyecto.nombre }}
-                      </option>
-                    </select>
-                  </div>
-                  <div v-if="codigoValido !== null" class="mt-2">
-                    <!-- Si el terreno se encuentra -->
-                    <span v-if="codigoValido" class="p-tag p-tag-success text-lg font-bold">
-                      ✔ Código válido
-                    </span>
-
-                    <!-- Si el terreno NO se encuentra -->
-                    <span v-else class="p-tag p-tag-danger text-lg font-bold">
-                      ✘ No existe
-                    </span>
-
-                  </div>
-
-                  <!-- Búsqueda por ubicacion -->
-                  <div class="pt-2 border-t">
-                    <p class="text-xs text-muted-foreground mb-2">Búsqueda rápida:</p>
-                    <div class="flex gap-2">
-                      <Input
-                        v-model="filtros.buscar_codigo"
-                        placeholder="Ingresa código del terreno (UV001-MZ001-1)"
-                        @keyup.enter="buscarPorCodigo"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        @click="buscarPorCodigo"
-                      >
-                        <Search class="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <!-- Barrio -->
-                  <div class="space-y-2">
-                    <Label for="barrio_id" :class="{ 'opacity-50': !filtros.proyecto_id }">
-                      Barrio
-                    </Label>
-                    <select
-                      id="barrio_id"
-                      v-model="filtros.barrio_id"
-                      :disabled="!filtros.proyecto_id"
-                      class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <option value="">Selecciona un barrio</option>
-                      <option
-                        v-for="barrio in barrios"
-                        :key="barrio.id"
-                        :value="barrio.id"
-                      >
-                        {{ barrio.nombre }}
-                      </option>
-                    </select>
-                  </div>
-
-                  <!-- Cuadra -->
-                  <div class="space-y-2">
-                    <Label for="cuadra_id" :class="{ 'opacity-50': !filtros.barrio_id }">
-                      Cuadra
-                    </Label>
-                    <select
-                      id="cuadra_id"
-                      v-model="filtros.cuadra_id"
-                      :disabled="!filtros.barrio_id"
-                      class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <option value="">Selecciona una cuadra</option>
-                      <option
-                        v-for="cuadra in cuadras"
-                        :key="cuadra.id"
-                        :value="cuadra.id"
-                      >
-                        {{ cuadra.nombre }}
-                      </option>
-                    </select>
-                  </div>
-                  <!-- Terreno -->
-                  <div class="space-y-2">
-                    <Label for="terreno_id" :class="{ 'opacity-50': !filtros.cuadra_id }">
-                      Terreno
-                    </Label>
-                    <select
-                      id="terreno_id"
-                      v-model="form.terreno_id"
-                      :disabled="!filtros.cuadra_id"
-                      class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    >
-                      <option value="">Selecciona un terreno</option>
-                    <option
-                      v-for="terreno in terrenosSelect"
-                      :key="terreno.id"
-                      :value="terreno.id"
-                    >
-                      {{ terreno.nombre }}
-                    </option>
-
-                    </select>
-                  </div>
-                </div>
+              <!-- Selección de Proyecto -->
+              <div class="space-y-2">
+                <Label for="proyecto_id">
+                  Proyecto <span class="text-destructive">*</span>
+                </Label>
+                <select
+                  id="proyecto_id"
+                  v-model="filtros.proyecto_id"
+                  class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecciona un proyecto</option>
+                  <option
+                    v-for="proyecto in proyectos"
+                    :key="proyecto.id"
+                    :value="proyecto.id"
+                  >
+                    {{ proyecto.nombre }}
+                  </option>
+                </select>
               </div>
+
               <!-- Preview del terreno seleccionado -->
-              <div v-if="selectedTerreno" class="bg-green-50 p-3 rounded-lg border border-green-200 text-sm">
-                <p class="font-semibold text-green-900 mb-2">Detalles del Terreno:</p>
-                <div class="grid grid-cols-2 gap-2 text-green-800">
+              <div v-if="selectedTerreno" class="bg-green-50 p-4 rounded-lg border-2 border-green-300 relative">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  @click="cancelarSeleccionTerreno"
+                  class="absolute top-2 right-2 h-8 w-8 text-muted-foreground hover:text-destructive"
+                  title="Cancelar selección"
+                >
+                  <XCircle class="h-5 w-5" />
+                </Button>
+                
+                <p class="font-semibold text-green-900 mb-3 flex items-center gap-2">
+                  <span class="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                  Terreno Seleccionado
+                </p>
+                <div class="grid grid-cols-2 gap-3 text-green-800 text-sm">
                   <div>
                     <span class="font-medium">Código:</span> {{ selectedTerreno.codigo }}
-
                   </div>
                   <div>
                     <span class="font-medium">Número:</span> {{ selectedTerreno.numero || 'N/A' }}
@@ -553,6 +524,134 @@ const buscarPorCodigo = async () => {
                   </div>
                 </div>
               </div>
+
+              <!-- Métodos de selección -->
+              <div v-else class="space-y-4">
+                <!-- Botón para abrir mapa -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p class="text-sm text-blue-900 mb-3 font-medium">
+                    Selecciona un terreno de las siguientes formas:
+                  </p>
+                  <div class="space-y-2">
+                    <Button 
+                      type="button" 
+                      @click="abrirMapa" 
+                      :disabled="!filtros.proyecto_id || mapaDeshabilitado"
+                      class="w-full"
+                      variant="default"
+                    >
+                      <Map class="mr-2 h-4 w-4" />
+                      {{ mapaDeshabilitado ? '🔒 Mapa bloqueado' : 'Elegir terreno en el mapa' }}
+                    </Button>
+                    <p class="text-xs text-center text-muted-foreground">o busca manualmente:</p>
+                  </div>
+                </div>
+
+                <!-- Búsqueda por código -->
+                <div class="space-y-2">
+                  <Label :class="{ 'opacity-50': codigoDeshabilitado }">
+                    Búsqueda rápida por código
+                  </Label>
+                  <div class="flex gap-2">
+                    <Input
+                      v-model="filtros.buscar_codigo"
+                      placeholder="Ej: UV001-MZ001-1"
+                      @keyup.enter="buscarPorCodigo"
+                      :disabled="!filtros.proyecto_id || codigoDeshabilitado"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      @click="buscarPorCodigo"
+                      :disabled="!filtros.proyecto_id || codigoDeshabilitado"
+                    >
+                      <Search class="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div v-if="codigoValido !== null && metodoSeleccionado === 'codigo'" class="mt-2">
+                    <span v-if="codigoValido" class="text-sm text-green-600 font-medium">
+                      ✔ Código válido
+                    </span>
+                    <span v-else class="text-sm text-red-600 font-medium">
+                      ✘ No existe
+                    </span>
+                  </div>
+                </div>
+
+              <!-- Reemplaza la sección de "Filtros jerárquicos" en tu LeadForm.vue -->
+              <!-- Filtros jerárquicos -->
+              <div class="p-4 rounded-lg bg-muted/50" :class="{ 'opacity-50': cascadaDeshabilitada }">
+                <h3 class="font-semibold text-sm mb-4 flex items-center gap-2">
+                  Selección Manual
+                  <span v-if="cascadaDeshabilitada" class="text-xs text-muted-foreground font-normal">(bloqueado)</span>
+                </h3>
+                <div class="space-y-4">
+                  <!-- Barrio -->
+                  <div class="space-y-2">
+                    <Label for="barrio_id">Barrio</Label>
+                    <select
+                      id="barrio_id"
+                      v-model="filtros.barrio_id"
+                      :disabled="!filtros.proyecto_id || cascadaDeshabilitada"
+                      class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="" class="text-foreground">Selecciona un barrio</option>
+                      <option
+                        v-for="barrio in barrios"
+                        :key="barrio.id"
+                        :value="barrio.id"
+                        class="text-foreground"
+                      >
+                        {{ barrio.nombre }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <!-- Cuadra -->
+                  <div class="space-y-2">
+                    <Label for="cuadra_id">Cuadra</Label>
+                    <select
+                      id="cuadra_id"
+                      v-model="filtros.cuadra_id"
+                      :disabled="!filtros.barrio_id || cascadaDeshabilitada"
+                      class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="" class="text-foreground">Selecciona una cuadra</option>
+                      <option
+                        v-for="cuadra in cuadras"
+                        :key="cuadra.id"
+                        :value="cuadra.id"
+                        class="text-foreground"
+                      >
+                        {{ cuadra.nombre }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <!-- Terreno -->
+                  <div class="space-y-2">
+                    <Label for="terreno_id">Terreno</Label>
+                    <select
+                      id="terreno_id"
+                      v-model="form.terreno_id"
+                      :disabled="!filtros.cuadra_id || cascadaDeshabilitada"
+                      class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="" class="text-foreground">Selecciona un terreno</option>
+                      <option
+                        v-for="terreno in terrenosSelect"
+                        :key="terreno.id"
+                        :value="terreno.id"
+                        class="text-foreground"
+                      >
+                        {{ terreno.nombre }}
+                      </option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
 
               <!-- Etapa -->
               <div class="space-y-2">
@@ -629,5 +728,12 @@ const buscarPorCodigo = async () => {
         </div>
       </form>
     </div>
+
+    <!-- Dialog del Mapa -->
+    <SeleccionTerrenoMapa
+      v-model:open="showMapa"
+      :proyecto-id="filtros.proyecto_id"
+      @terreno-seleccionado="handleTerrenoSeleccionado"
+    />
   </AppLayout>
 </template>
